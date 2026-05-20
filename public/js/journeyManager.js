@@ -31,6 +31,10 @@ export function renderAll() {
   state.getJourneys().forEach(j => _renderJourney(j));
 }
 
+export function getJourneyLabels() {
+  return Array.from(_renderers.values()).map(r => r.label);
+}
+
 // ── Directions & preview ───────────────────────────────────────────
 
 export async function fetchRoutes(fromLoc, toLoc) {

@@ -1,6 +1,6 @@
 {
   "name": "vacation-planner",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Interactive vacation planning app with Google Maps",
   "main": "server.js",
   "scripts": {

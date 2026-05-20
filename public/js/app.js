@@ -7,6 +7,7 @@ import * as locationManager from './locationManager.js';
 import * as journeyManager  from './journeyManager.js';
 import * as panels          from './panels.js';
 import { _showToast }       from './panels.js';
+import { spreadLabels }     from './mapLabel.js';
 
 // ── Bootstrap ──────────────────────────────────────────────────────
 
@@ -39,6 +40,8 @@ async function boot() {
         try {
           localStorage.setItem('vacation-data', JSON.stringify(state.serialize()));
         } catch (_) { /* storage full — not critical */ }
+
+        _doSpread();
       });
     });
 
@@ -64,6 +67,9 @@ async function boot() {
       document.getElementById('menu-icon-open').classList.toggle('hidden', open);
       document.getElementById('menu-icon-close').classList.toggle('hidden', !open);
     });
+
+    // 12. Spread labels after every map render
+    mapManager.getMap().addListener('idle', _doSpread);
 
   } catch (err) {
     showError(err);
@@ -138,6 +144,43 @@ function showError(err) {
   const detail = document.getElementById('error-detail');
   if (detail) detail.textContent = err.message;
   screen.classList.remove('hidden');
+}
+
+function _doSpread() {
+  spreadLabels([
+    ...locationManager.getTitleLabels(),
+    ...journeyManager.getJourneyLabels(),
+  ]);
+}
+
+// ── PWA install prompt ─────────────────────────────────────────────
+
+let _installPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _installPrompt = e;
+  // Don't show if already running as installed PWA
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  setTimeout(_showInstallBanner, 2500);
+});
+
+function _showInstallBanner() {
+  const banner = document.getElementById('install-banner');
+  if (!banner) return;
+  banner.classList.remove('hidden');
+
+  document.getElementById('btn-install').addEventListener('click', async () => {
+    banner.classList.add('hidden');
+    if (!_installPrompt) return;
+    _installPrompt.prompt();
+    const { outcome } = await _installPrompt.userChoice;
+    if (outcome === 'accepted') _installPrompt = null;
+  }, { once: true });
+
+  document.getElementById('btn-install-dismiss').addEventListener('click', () => {
+    banner.classList.add('hidden');
+  }, { once: true });
 }
 
 // ── Go ─────────────────────────────────────────────────────────────
