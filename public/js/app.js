@@ -48,6 +48,23 @@ async function boot() {
     // 8. Hide loading screen
     hideLoading();
 
+    // 9. Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .catch(e => console.warn('SW registration failed:', e));
+    }
+
+    // 10. Start GPS dot
+    mapManager.initGeolocation();
+
+    // 11. Wire hamburger toggle
+    document.getElementById('menu-btn').addEventListener('click', () => {
+      const open = document.body.classList.toggle('toolbar-open');
+      document.getElementById('menu-btn').setAttribute('aria-expanded', String(open));
+      document.getElementById('menu-icon-open').classList.toggle('hidden', open);
+      document.getElementById('menu-icon-close').classList.toggle('hidden', !open);
+    });
+
   } catch (err) {
     showError(err);
   }

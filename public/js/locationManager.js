@@ -65,9 +65,28 @@ function _toggleAddMode() {
   if (_addMode) {
     events.emit('status:show', { message: 'Click anywhere on the map to drop a pin', type: 'info' });
     _clickHandle = mapManager.addMapClickListener(async e => {
+      if (e.placeId) e.stop(); // prevent default POI info window
       const latLng = e.latLng;
-      const title  = await mapManager.reverseGeocode(latLng);
-      _createLocation({ lat: latLng.lat(), lng: latLng.lng(), title });
+      if (e.placeId) {
+        events.emit('status:show', { message: 'Loading place details…', type: 'info' });
+        try {
+          const place = await mapManager.getPlaceDetails(e.placeId);
+          const notes = [place.formatted_address, place.formatted_phone_number]
+            .filter(Boolean).join('\n');
+          _createLocation({
+            lat:   place.geometry.location.lat(),
+            lng:   place.geometry.location.lng(),
+            title: place.name || 'New Location',
+            notes,
+          });
+        } catch (_) {
+          const title = await mapManager.reverseGeocode(latLng);
+          _createLocation({ lat: latLng.lat(), lng: latLng.lng(), title });
+        }
+      } else {
+        const title = await mapManager.reverseGeocode(latLng);
+        _createLocation({ lat: latLng.lat(), lng: latLng.lng(), title });
+      }
       _exitAddMode();
     });
   } else {
@@ -103,7 +122,7 @@ function _onPlaceSelected() {
 
 // ── Create ─────────────────────────────────────────────────────────
 
-function _createLocation({ lat, lng, title }) {
+function _createLocation({ lat, lng, title, notes = '' }) {
   const loc = {
     id:        generateId(),
     title:     title || 'New Location',
@@ -113,7 +132,7 @@ function _createLocation({ lat, lng, title }) {
     lng,
     startDate: '',
     endDate:   '',
-    notes:     '',
+    notes,
   };
   state.addLocation(loc);
   _addMarker(loc);

@@ -32,7 +32,38 @@ html, body {
   background: rgba(15, 23, 42, 0.92);
   backdrop-filter: blur(8px);
   box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+  transform: translateY(-100%);
+  transition: transform 0.2s ease;
+  pointer-events: none;
 }
+body.toolbar-open #toolbar {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ── Hamburger FAB ──────────────────────────────────────────── */
+#menu-btn {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 250;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #f1f5f9;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  backdrop-filter: blur(8px);
+  transition: background 0.15s, transform 0.15s;
+  padding: 0;
+}
+#menu-btn:hover { background: rgba(30, 41, 59, 0.96); }
+#menu-btn svg { width: 18px; height: 18px; }
 
 #search-wrapper {
   display: flex;
@@ -120,7 +151,7 @@ html, body {
 /* ── Status Banner ────────────────────────────────────────────────── */
 #status-banner {
   position: absolute;
-  top: 60px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 200;
@@ -136,10 +167,11 @@ html, body {
   box-shadow: 0 4px 16px rgba(29,78,216,0.4);
   white-space: nowrap;
   pointer-events: auto;
-  transition: opacity 0.2s;
+  transition: top 0.2s ease, opacity 0.2s;
 }
 #status-banner.hidden { display: none; }
 #status-banner.error { background: #b91c1c; }
+body.toolbar-open #status-banner { top: 62px; }
 
 #btn-status-cancel {
   background: transparent;
@@ -155,7 +187,7 @@ html, body {
 /* ── Side Panels ──────────────────────────────────────────────────── */
 .side-panel {
   position: absolute;
-  top: 52px;
+  top: 0;
   bottom: 0;
   z-index: 150;
   width: 340px;
@@ -163,8 +195,9 @@ html, body {
   display: flex;
   flex-direction: column;
   box-shadow: 0 0 24px rgba(0,0,0,0.4);
-  transition: transform 0.25s ease;
+  transition: transform 0.25s ease, top 0.2s ease;
 }
+body.toolbar-open .side-panel { top: 52px; }
 
 /* Right panel slides in from right */
 #right-panel {
@@ -572,6 +605,19 @@ html, body {
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ── GPS location dot ───────────────────────────────────────────── */
+.gps-dot {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #4285F4;
+  border: 2.5px solid #fff;
+  box-shadow: 0 0 0 5px rgba(66,133,244,0.22);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
 }
 
 /* ── Toast ────────────────────────────────────────────────────────── */

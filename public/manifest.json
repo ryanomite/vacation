@@ -1,0 +1,19 @@
+{
+  "name": "Vacation Planner",
+  "short_name": "Vacation",
+  "description": "Interactive vacation and travel planning with Google Maps",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "any",
+  "categories": ["travel", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

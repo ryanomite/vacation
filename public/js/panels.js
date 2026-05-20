@@ -111,7 +111,14 @@ function _wireLocationEditor() {
   // Date changes
   document.getElementById('loc-start-date').addEventListener('change', e => {
     if (!_currentLocationId) return;
-    state.updateLocation(_currentLocationId, { startDate: e.target.value });
+    const prevStart = state.getLocation(_currentLocationId)?.startDate || '';
+    const newStart  = e.target.value;
+    state.updateLocation(_currentLocationId, { startDate: newStart });
+    const endInput = document.getElementById('loc-end-date');
+    if (!endInput.value || endInput.value === prevStart) {
+      endInput.value = newStart;
+      state.updateLocation(_currentLocationId, { endDate: newStart });
+    }
     _refreshAgendaIfOpen();
   });
   document.getElementById('loc-end-date').addEventListener('change', e => {

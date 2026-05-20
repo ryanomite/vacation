@@ -5,6 +5,7 @@ let _map = null;
 let _geocoder = null;
 let _directionsService = null;
 let _autocomplete = null;
+let _placesService = null;
 
 export function init() {
   _map = new google.maps.Map(document.getElementById('map'), {
@@ -115,4 +116,70 @@ export function makeMarkerIcon(color) {
 
 export function makeMarkerLabel(icon) {
   return { text: icon, fontSize: '18px' };
+}
+
+// ── Places details ─────────────────────────────────────────────────
+
+export function getPlaceDetails(placeId) {
+  if (!_placesService) {
+    _placesService = new google.maps.places.PlacesService(_map);
+  }
+  return new Promise((resolve, reject) => {
+    _placesService.getDetails(
+      { placeId, fields: ['name', 'formatted_address', 'formatted_phone_number', 'geometry'] },
+      (place, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK) resolve(place);
+        else reject(new Error(`Places: ${status}`));
+      }
+    );
+  });
+}
+
+// ── Geolocation (GPS dot) ──────────────────────────────────────────
+
+export function initGeolocation() {
+  if (!navigator.geolocation) return;
+
+  const dot = document.createElement('div');
+  dot.className = 'gps-dot';
+
+  const overlay = new google.maps.OverlayView();
+  overlay.onAdd = function () {
+    this.getPanes().floatPane.appendChild(dot);
+  };
+  overlay.draw = function () {};
+  overlay.onRemove = function () { dot.remove(); };
+
+  let overlayAdded = false;
+
+  navigator.geolocation.watchPosition(
+    pos => {
+      const latLng = new google.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
+
+      if (!overlayAdded) {
+        overlay.setMap(_map);
+        overlayAdded = true;
+
+        overlay.draw = function () {
+          const proj = this.getProjection();
+          if (!proj) return;
+          const point = proj.fromLatLngToDivPixel(latLng);
+          dot.style.left = point.x + 'px';
+          dot.style.top  = point.y + 'px';
+        };
+      }
+
+      overlay.draw = function () {
+        const proj = this.getProjection();
+        if (!proj) return;
+        const point = proj.fromLatLngToDivPixel(latLng);
+        dot.style.left = point.x + 'px';
+        dot.style.top  = point.y + 'px';
+      };
+
+      overlay.draw();
+    },
+    err => console.warn('Geolocation:', err.message),
+    { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 }
+  );
 }

@@ -2,8 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Vacation Planner</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+
+  <!-- iOS PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Vacation">
+  <link rel="apple-touch-icon" href="/icons/icon.svg">
+
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
@@ -11,7 +23,18 @@
   <!-- Full-screen map -->
   <div id="map"></div>
 
-  <!-- ── Toolbar ─────────────────────────────────────────────────── -->
+  <!-- ── Hamburger FAB (always visible) ───────────────────────────── -->
+  <button id="menu-btn" title="Open toolbar" aria-label="Open toolbar" aria-expanded="false">
+    <svg id="menu-icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <line x1="4" y1="7"  x2="20" y2="7"/>
+      <line x1="4" y1="12" x2="20" y2="12"/>
+      <line x1="4" y1="17" x2="20" y2="17"/>
+    </svg>
+    <svg id="menu-icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="hidden">
+      <line x1="5" y1="5" x2="19" y2="19"/>
+      <line x1="19" y1="5" x2="5" y2="19"/>
+    </svg>
+  </button>
   <div id="toolbar">
     <div id="search-wrapper">
       <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
