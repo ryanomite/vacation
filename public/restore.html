@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restore Backup — Vacation Planner</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100dvh;
+      padding: 32px 16px;
+    }
+    .page { max-width: 560px; margin: 0 auto; }
+    h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: #64748b; margin-bottom: 28px; }
+    .subtitle a { color: #3b82f6; text-decoration: none; }
+    .subtitle a:hover { text-decoration: underline; }
+
+    #backup-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .backup-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+    }
+    .backup-name {
+      font-size: 13px;
+      font-family: 'SF Mono', ui-monospace, monospace;
+      color: #94a3b8;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .backup-date {
+      font-size: 13px;
+      font-weight: 500;
+      color: #e2e8f0;
+      white-space: nowrap;
+    }
+    .btn-restore {
+      padding: 5px 14px;
+      background: #3b82f6;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-restore:hover { background: #2563eb; }
+    .btn-restore:disabled { background: #1e40af; opacity: 0.5; cursor: default; }
+
+    .empty { color: #475569; font-size: 14px; padding: 24px 0; }
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      border-radius: 24px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { background: #15803d; }
+    .toast.error   { background: #b91c1c; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>🗂️ Restore a Backup</h1>
+    <p class="subtitle">Each save creates a timestamped backup. Restoring replaces the live data immediately. &nbsp;<a href="/">← Back to planner</a></p>
+    <div id="backup-list"><p class="empty">Loading…</p></div>
+  </div>
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const list  = document.getElementById('backup-list');
+    const toast = document.getElementById('toast');
+    let toastTimer;
+
+    function showToast(msg, type) {
+      toast.textContent = msg;
+      toast.className = `toast ${type} show`;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+
+    function formatDate(filename) {
+      // filename: 2026-05-20T14-30-00.json → "20 May 2026, 14:30:00"
+      const m = filename.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})/);
+      if (!m) return filename.replace('.json', '');
+      const d = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`);
+      return d.toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        timeZoneName: 'short',
+      });
+    }
+
+    async function load() {
+      const res   = await fetch('/api/backups');
+      const files = await res.json();
+      if (!files.length) {
+        list.innerHTML = '<p class="empty">No backups yet — save from the planner to create one.</p>';
+        return;
+      }
+      list.innerHTML = '';
+      files.forEach(file => {
+        const row = document.createElement('div');
+        row.className = 'backup-row';
+        row.innerHTML = `
+          <span class="backup-date">${formatDate(file)}</span>
+          <span class="backup-name">${file}</span>
+          <button class="btn-restore" data-file="${file}">Restore</button>
+        `;
+        list.appendChild(row);
+      });
+      list.querySelectorAll('.btn-restore').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const file = btn.dataset.file;
+          if (!confirm(`Restore "${file}" as the live data? This will overwrite the current state.`)) return;
+          btn.disabled = true;
+          btn.textContent = 'Restoring…';
+          try {
+            const r = await fetch(`/api/restore/${encodeURIComponent(file)}`, { method: 'POST' });
+            const json = await r.json();
+            if (!r.ok) throw new Error(json.error || 'Failed');
+            showToast('Restored! Reload the planner to see it.', 'success');
+          } catch (e) {
+            showToast(`Error: ${e.message}`, 'error');
+          } finally {
+            btn.disabled = false;
+            btn.textContent = 'Restore';
+          }
+        });
+      });
+    }
+
+    load().catch(e => {
+      list.innerHTML = `<p class="empty">Failed to load backups: ${e.message}</p>`;
+    });
+  </script>
+</body>
+</html>
