@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vacation Planner</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+  <!-- Full-screen map -->
+  <div id="map"></div>
+
+  <!-- ── Toolbar ─────────────────────────────────────────────────── -->
+  <div id="toolbar">
+    <div id="search-wrapper">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input id="search-input" type="text" placeholder="Search for a place…" autocomplete="off">
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <button id="btn-add-location" class="toolbar-btn" title="Add location (click map)">
+      <span class="btn-icon">📍</span>
+      <span class="btn-label">Add Location</span>
+    </button>
+
+    <button id="btn-add-journey" class="toolbar-btn" title="Add journey between two locations">
+      <span class="btn-icon">🛣️</span>
+      <span class="btn-label">Add Journey</span>
+    </button>
+
+    <div class="toolbar-divider"></div>
+
+    <button id="btn-agenda" class="toolbar-btn" title="Toggle agenda view">
+      <span class="btn-icon">📅</span>
+      <span class="btn-label">Agenda</span>
+    </button>
+
+    <div class="toolbar-spacer"></div>
+
+    <button id="btn-save" class="toolbar-btn toolbar-btn--save" title="Save to server">
+      <span class="btn-icon">💾</span>
+      <span class="btn-label">Save</span>
+    </button>
+  </div>
+
+  <!-- ── Status Banner (instructions / feedback) ──────────────────── -->
+  <div id="status-banner" class="hidden">
+    <span id="status-message"></span>
+    <button id="btn-status-cancel" title="Cancel">✕</button>
+  </div>
+
+  <!-- ── Right Panel (location editor + journey editors) ──────────── -->
+  <div id="right-panel" class="side-panel hidden">
+
+    <!-- Location Editor -->
+    <div id="location-editor" class="panel-view hidden">
+      <div class="panel-header">
+        <h3>Location</h3>
+        <button class="btn-close-panel" aria-label="Close">✕</button>
+      </div>
+      <div class="panel-scroll">
+
+        <div class="form-group">
+          <label for="loc-title">Title</label>
+          <input id="loc-title" type="text" placeholder="e.g. Eiffel Tower">
+        </div>
+
+        <div class="form-group">
+          <label>Icon</label>
+          <div id="icon-grid" class="icon-grid"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Marker Color</label>
+          <div id="loc-color-grid" class="color-grid"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Stay / Visit Dates</label>
+          <div class="date-row">
+            <input id="loc-start-date" type="date" title="From date">
+            <span class="date-sep">→</span>
+            <input id="loc-end-date" type="date" title="To date (same as start = single day)">
+          </div>
+          <div class="form-hint">Leave blank if dates aren't set yet</div>
+        </div>
+
+        <div class="panel-actions">
+          <button id="btn-journey-from" class="btn-secondary btn-block">
+            🛣️ &nbsp;Journey from here…
+          </button>
+          <button id="btn-delete-location" class="btn-danger btn-block" style="margin-top:8px;">
+            🗑️ &nbsp;Delete Location
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Route Picker (new journey — step 2: choose route + details) -->
+    <div id="route-picker-panel" class="panel-view hidden">
+      <div class="panel-header">
+        <h3>New Journey</h3>
+        <button class="btn-close-panel" aria-label="Close">✕</button>
+      </div>
+      <div class="panel-scroll">
+
+        <div class="journey-header">
+          <span id="rp-from-name" class="journey-node"></span>
+          <span class="journey-arrow">→</span>
+          <span id="rp-to-name" class="journey-node"></span>
+        </div>
+
+        <div class="form-group">
+          <label>Choose Route</label>
+          <div id="route-options" class="route-options"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="rp-date">Date of Travel</label>
+          <input id="rp-date" type="date">
+        </div>
+
+        <div class="form-group">
+          <label>Path Color</label>
+          <div id="rp-color-grid" class="color-grid"></div>
+        </div>
+
+        <div class="panel-actions">
+          <button id="btn-confirm-journey" class="btn-primary btn-block">Add Journey</button>
+          <button id="btn-cancel-route" class="btn-ghost btn-block">Cancel</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Journey Detail Editor (existing journey) -->
+    <div id="journey-editor" class="panel-view hidden">
+      <div class="panel-header">
+        <h3>Journey</h3>
+        <button class="btn-close-panel" aria-label="Close">✕</button>
+      </div>
+      <div class="panel-scroll">
+
+        <div class="journey-header">
+          <span id="je-from-name" class="journey-node"></span>
+          <span class="journey-arrow">→</span>
+          <span id="je-to-name" class="journey-node"></span>
+        </div>
+
+        <div class="journey-meta" id="je-meta"></div>
+
+        <div class="form-group">
+          <label for="je-date">Date of Travel</label>
+          <input id="je-date" type="date">
+        </div>
+
+        <div class="form-group">
+          <label>Path Color</label>
+          <div id="je-color-grid" class="color-grid"></div>
+        </div>
+
+        <div class="panel-actions">
+          <button id="btn-save-journey" class="btn-primary btn-block">Save Changes</button>
+          <button id="btn-delete-journey" class="btn-danger btn-block" style="margin-top:8px;">
+            🗑️ &nbsp;Delete Journey
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /#right-panel -->
+
+  <!-- ── Agenda Panel ──────────────────────────────────────────────── -->
+  <div id="agenda-panel" class="side-panel hidden">
+    <div class="panel-header">
+      <h3>📅 Agenda</h3>
+      <button id="btn-close-agenda" class="btn-close-panel" aria-label="Close agenda">✕</button>
+    </div>
+    <div id="agenda-content" class="panel-scroll"></div>
+  </div>
+
+  <!-- ── Toast notifications ──────────────────────────────────────── -->
+  <div id="toast" class="hidden"></div>
+
+  <!-- ── Loading overlay ──────────────────────────────────────────── -->
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <span>Loading vacation planner…</span>
+  </div>
+
+  <!-- ── Error screen ──────────────────────────────────────────────── -->
+  <div id="error-screen" class="hidden">
+    <h2>⚠️ Could not start</h2>
+    <p>Check that <code>GOOGLE_MAPS_API_KEY</code> is set in your environment and that you have enabled the Maps JavaScript, Places, and Directions APIs.</p>
+    <pre id="error-detail"></pre>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+# Persistent data directory — data.json is written here at runtime and is gitignored.
+# In Caprover, mount a persistent volume to /app/data so this survives redeployments.
