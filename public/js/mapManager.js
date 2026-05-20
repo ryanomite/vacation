@@ -33,6 +33,13 @@ export function init() {
 export function getMap()          { return _map; }
 export function getAutocomplete() { return _autocomplete; }
 
+/** Create and return a new Places Autocomplete bound to the given input element. */
+export function createAutocomplete(inputEl) {
+  return new google.maps.places.Autocomplete(inputEl, {
+    fields: ['geometry', 'name', 'formatted_address'],
+  });
+}
+
 // ── Map interactions ───────────────────────────────────────────────
 
 export function addMapClickListener(fn) {

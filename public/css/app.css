@@ -250,7 +250,8 @@ html, body {
 }
 
 .form-group input[type="text"],
-.form-group input[type="date"] {
+.form-group input[type="date"],
+.form-group textarea {
   background: rgba(255,255,255,0.07);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 6px;
@@ -260,7 +261,15 @@ html, body {
   outline: none;
   transition: border-color 0.15s;
 }
-.form-group input:focus {
+.form-group textarea {
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+  line-height: 1.5;
+  min-height: 64px;
+}
+.form-group input:focus,
+.form-group textarea:focus {
   border-color: #3b82f6;
   background: rgba(255,255,255,0.1);
 }
@@ -272,6 +281,14 @@ html, body {
 .form-hint {
   font-size: 11px;
   color: #475569;
+}
+
+.label-optional {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #475569;
+  font-size: 10px;
 }
 
 .date-row {
@@ -492,6 +509,15 @@ html, body {
   margin-top: 2px;
 }
 
+.agenda-item-notes {
+  font-size: 11px;
+  color: #475569;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
 .agenda-journey-dot {
   display: inline-block;
   width: 10px; height: 10px;
@@ -521,6 +547,31 @@ html, body {
   pointer-events: none;
   box-shadow: 0 2px 6px rgba(0,0,0,0.3);
   border: 1px solid rgba(255,255,255,0.25);
+  text-align: center;
+  line-height: 1.35;
+}
+.map-journey-label div + div {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+/* ── Map location title labels ────────────────────────────────────── */
+.map-location-label {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 24px));
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #f1f5f9;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.45);
+  border: 1px solid rgba(255,255,255,0.15);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Toast ────────────────────────────────────────────────────────── */

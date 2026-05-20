@@ -1,24 +1,42 @@
 import * as state      from './state.js';
 import * as events     from './events.js';
 import * as mapManager from './mapManager.js';
+import { getMapLabelClass } from './mapLabel.js';
 import { generateId, DEFAULT_ICON, DEFAULT_COLOR } from './utils.js';
 
 // locationId → google.maps.Marker
 const _markers = new Map();
+// locationId → MapLabel (title overlay above marker)
+const _titleLabels = new Map();
 
-let _addMode = false;
+let _addMode    = false;
 let _clickHandle = null;
+let _editingId  = null; // which location is currently open in the editor
 
 // ── Init ───────────────────────────────────────────────────────────
 
 export function init() {
-  // Toolbar "Add Location" button
   document.getElementById('btn-add-location').addEventListener('click', _toggleAddMode);
 
-  // Address search via Places Autocomplete
   mapManager.getAutocomplete().addListener('place_changed', _onPlaceSelected);
 
-  // Keep markers in sync with state changes
+  // Move-to-place search inside the location editor
+  const moveInput = document.getElementById('loc-move-search');
+  const moveAC    = mapManager.createAutocomplete(moveInput);
+  moveAC.addListener('place_changed', () => {
+    if (!_editingId) return;
+    const place = moveAC.getPlace();
+    if (!place?.geometry?.location) return;
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+    _moveLocation(_editingId, lat, lng, true);
+    moveInput.value = '';
+    moveAC.set('place', null);
+  });
+
+  // Track which location is open in the editor
+  events.on('ui:open-location', id => { _editingId = id; });
+
   events.on('location:updated', loc => _syncMarker(loc.id));
   events.on('location:deleted', id  => _removeMarker(id));
 }
@@ -45,10 +63,7 @@ function _toggleAddMode() {
   mapManager.setMapCursor(_addMode ? 'crosshair' : '');
 
   if (_addMode) {
-    events.emit('status:show', {
-      message: 'Click anywhere on the map to drop a pin',
-      type: 'info',
-    });
+    events.emit('status:show', { message: 'Click anywhere on the map to drop a pin', type: 'info' });
     _clickHandle = mapManager.addMapClickListener(async e => {
       const latLng = e.latLng;
       const title  = await mapManager.reverseGeocode(latLng);
@@ -71,7 +86,7 @@ function _exitAddMode() {
   }
 }
 
-// ── Place search ───────────────────────────────────────────────────
+// ── Place search (toolbar) ─────────────────────────────────────────
 
 function _onPlaceSelected() {
   const place = mapManager.getAutocomplete().getPlace();
@@ -82,13 +97,11 @@ function _onPlaceSelected() {
     lng:   loc.lng(),
     title: place.name || place.formatted_address || 'New Location',
   });
-  // Clear the search field
   document.getElementById('search-input').value = '';
-  // Reset autocomplete internal state
   mapManager.getAutocomplete().set('place', null);
 }
 
-// ── Create / render ────────────────────────────────────────────────
+// ── Create ─────────────────────────────────────────────────────────
 
 function _createLocation({ lat, lng, title }) {
   const loc = {
@@ -100,31 +113,63 @@ function _createLocation({ lat, lng, title }) {
     lng,
     startDate: '',
     endDate:   '',
+    notes:     '',
   };
   state.addLocation(loc);
   _addMarker(loc);
-  // Open the editor for this location immediately
   events.emit('ui:open-location', loc.id);
 }
+
+// ── Move location (drag or search) ────────────────────────────────
+
+function _moveLocation(id, lat, lng, panMap = false) {
+  state.updateLocation(id, { lat, lng });
+  const marker     = _markers.get(id);
+  const titleLabel = _titleLabels.get(id);
+  const latLng     = new google.maps.LatLng(lat, lng);
+  if (marker)     marker.setPosition(latLng);
+  if (titleLabel) titleLabel.updatePosition(latLng);
+  if (panMap)     mapManager.getMap().panTo(latLng);
+  events.emit('location:moved', { id });
+}
+
+// ── Marker & title label ───────────────────────────────────────────
 
 function _addMarker(loc) {
   const map = mapManager.getMap();
 
   const marker = new google.maps.Marker({
-    position: { lat: loc.lat, lng: loc.lng },
+    position:  { lat: loc.lat, lng: loc.lng },
     map,
-    title: loc.title,
-    label:  mapManager.makeMarkerLabel(loc.icon),
-    icon:   mapManager.makeMarkerIcon(loc.color),
-    zIndex: 200,
-    optimized: false, // needed for emoji labels on some platforms
+    title:     loc.title,
+    label:     mapManager.makeMarkerLabel(loc.icon),
+    icon:      mapManager.makeMarkerIcon(loc.color),
+    zIndex:    200,
+    draggable: true,
+    optimized: false,
   });
 
   marker.addListener('click', () => {
     events.emit('location:map-click', loc.id);
   });
 
+  marker.addListener('dragend', () => {
+    const pos = marker.getPosition();
+    _moveLocation(loc.id, pos.lat(), pos.lng());
+  });
+
+  // Title overlay above the marker
+  const MapLabel   = getMapLabelClass();
+  const titleLabel = new MapLabel(
+    [loc.title],
+    new google.maps.LatLng(loc.lat, loc.lng),
+    'rgba(15,23,42,0.82)',
+    'map-location-label'
+  );
+  titleLabel.setMap(map);
+
   _markers.set(loc.id, marker);
+  _titleLabels.set(loc.id, titleLabel);
 }
 
 function _syncMarker(id) {
@@ -134,12 +179,13 @@ function _syncMarker(id) {
   marker.setTitle(loc.title);
   marker.setLabel(mapManager.makeMarkerLabel(loc.icon));
   marker.setIcon(mapManager.makeMarkerIcon(loc.color));
+  const titleLabel = _titleLabels.get(id);
+  if (titleLabel) titleLabel.update([loc.title], 'rgba(15,23,42,0.82)');
 }
 
 function _removeMarker(id) {
   const marker = _markers.get(id);
-  if (marker) {
-    marker.setMap(null);
-    _markers.delete(id);
-  }
+  if (marker) { marker.setMap(null); _markers.delete(id); }
+  const titleLabel = _titleLabels.get(id);
+  if (titleLabel) { titleLabel.setMap(null); _titleLabels.delete(id); }
 }

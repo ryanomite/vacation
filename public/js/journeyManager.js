@@ -15,6 +15,14 @@ let _previewPolylines = [];
 export function init() {
   events.on('journey:updated', j => _syncRenderer(j));
   events.on('journey:deleted', id => _removeRenderer(id));
+
+  // Recalculate any affected journeys when a location is dragged or moved
+  events.on('location:moved', async ({ id }) => {
+    const affected = state.getJourneys().filter(j => j.fromId === id || j.toId === id);
+    for (const j of affected) {
+      await _recalculateJourney(j.id);
+    }
+  });
 }
 
 // ── Render all saved journeys ──────────────────────────────────────
@@ -65,17 +73,17 @@ export function clearPreviews() {
 
 // ── Confirm / save a new journey ───────────────────────────────────
 
-export function confirmJourney({ fromId, toId, route, color, date }) {
+export function confirmJourney({ fromId, toId, route, color, date, title }) {
   clearPreviews();
 
   const leg  = route.legs[0];
-  // Serialize path as plain objects (google.maps.LatLng → {lat,lng})
   const path = route.overview_path.map(p => ({ lat: p.lat(), lng: p.lng() }));
 
   const journey = {
     id:           generateId(),
     fromId,
     toId,
+    title:        title || '',
     date:         date || '',
     color:        color || DEFAULT_JOURNEY_COLOR,
     durationText: leg.duration.text,
@@ -108,13 +116,13 @@ function _renderJourney(journey) {
     events.emit('ui:open-journey', journey.id);
   });
 
-  // Duration label at route midpoint
+  // Duration (and optional title) label at route midpoint
   const midIndex = Math.floor(journey.path.length / 2);
   const midPt    = journey.path[midIndex] || journey.path[0];
 
   const MapLabel = getMapLabelClass();
   const label    = new MapLabel(
-    journey.durationText,
+    [journey.title, journey.durationText].filter(Boolean),
     new google.maps.LatLng(midPt.lat, midPt.lng),
     journey.color
   );
@@ -127,7 +135,7 @@ function _syncRenderer(journey) {
   const r = _renderers.get(journey.id);
   if (!r) return;
   r.polyline.setOptions({ strokeColor: journey.color });
-  r.label.update(journey.durationText, journey.color);
+  r.label.update([journey.title, journey.durationText].filter(Boolean), journey.color);
 }
 
 function _removeRenderer(id) {
@@ -136,4 +144,37 @@ function _removeRenderer(id) {
   r.polyline.setMap(null);
   r.label.setMap(null);
   _renderers.delete(id);
+}
+
+// ── Recalculate an existing journey's route ────────────────────────
+
+async function _recalculateJourney(id) {
+  const j       = state.getJourney(id);
+  const fromLoc = state.getLocation(j?.fromId);
+  const toLoc   = state.getLocation(j?.toId);
+  if (!j || !fromLoc || !toLoc) return;
+
+  try {
+    const result = await mapManager.getDirections(fromLoc, toLoc);
+    const route  = result.routes[0];
+    const leg    = route.legs[0];
+    const path   = route.overview_path.map(p => ({ lat: p.lat(), lng: p.lng() }));
+
+    state.updateJourney(id, {
+      durationText: leg.duration.text,
+      distanceText: leg.distance.text,
+      summary:      route.summary || '',
+      path,
+    });
+
+    // Update renderer directly (state:changed already fired via updateJourney)
+    const r = _renderers.get(id);
+    if (r) {
+      r.polyline.setPath(path);
+      const midPt = path[Math.floor(path.length / 2)] || path[0];
+      r.label.updatePosition(new google.maps.LatLng(midPt.lat, midPt.lng));
+    }
+  } catch (err) {
+    console.warn(`Could not recalculate journey ${id}:`, err.message);
+  }
 }

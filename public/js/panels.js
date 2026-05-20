@@ -14,8 +14,7 @@ const _flow = {
   routes:       null,       // google.maps.DirectionsRoute[]
   routeIndex:   0,
   color:        DEFAULT_JOURNEY_COLOR,
-  date:         '',
-};
+  date:         '',  title:        '',};
 
 let _currentLocationId = null; // which location the editor is showing
 let _currentJourneyId  = null; // which existing journey the editor is showing
@@ -121,6 +120,13 @@ function _wireLocationEditor() {
     _refreshAgendaIfOpen();
   });
 
+  // Notes
+  document.getElementById('loc-notes').addEventListener('input', e => {
+    if (!_currentLocationId) return;
+    state.updateLocation(_currentLocationId, { notes: e.target.value });
+    _refreshAgendaIfOpen();
+  });
+
   // "Journey from here" button
   document.getElementById('btn-journey-from').addEventListener('click', () => {
     const id = _currentLocationId;
@@ -155,6 +161,7 @@ export function openLocationEditor(id) {
   document.getElementById('loc-title').value      = loc.title;
   document.getElementById('loc-start-date').value = loc.startDate || '';
   document.getElementById('loc-end-date').value   = loc.endDate   || '';
+  document.getElementById('loc-notes').value      = loc.notes     || '';
 
   // Icon selection
   document.querySelectorAll('#icon-grid .icon-btn').forEach(btn => {
@@ -173,6 +180,11 @@ export function openLocationEditor(id) {
 // ── Journey Editor (existing journey) ─────────────────────────────
 
 function _wireJourneyEditor() {
+  document.getElementById('je-title').addEventListener('input', e => {
+    if (!_currentJourneyId) return;
+    state.updateJourney(_currentJourneyId, { title: e.target.value });
+  });
+
   document.getElementById('je-date').addEventListener('change', e => {
     if (!_currentJourneyId) return;
     state.updateJourney(_currentJourneyId, { date: e.target.value });
@@ -205,7 +217,8 @@ export function openJourneyEditor(id) {
   document.getElementById('je-meta').textContent =
     [j.durationText, j.distanceText, j.summary ? `via ${j.summary}` : '']
       .filter(Boolean).join(' · ');
-  document.getElementById('je-date').value = j.date || '';
+  document.getElementById('je-title').value = j.title || '';
+  document.getElementById('je-date').value  = j.date  || '';
 
   document.querySelectorAll('#je-color-grid .color-swatch').forEach(sw => {
     sw.classList.toggle('selected', sw.dataset.color === j.color);
@@ -222,6 +235,10 @@ function _wireRoutePicker() {
     _flow.date = e.target.value;
   });
 
+  document.getElementById('rp-title').addEventListener('input', e => {
+    _flow.title = e.target.value;
+  });
+
   document.getElementById('btn-confirm-journey').addEventListener('click', () => {
     if (!_flow.routes) return;
     const journey = journeyManager.confirmJourney({
@@ -230,6 +247,7 @@ function _wireRoutePicker() {
       route:  _flow.routes[_flow.routeIndex],
       color:  _flow.color,
       date:   _flow.date,
+      title:  _flow.title,
     });
     _resetFlow();
     closeRightPanel();
@@ -273,7 +291,9 @@ async function _startFetchRoutes() {
 function _populateRoutePicker(routes, fromLoc, toLoc) {
   document.getElementById('rp-from-name').textContent = fromLoc.title;
   document.getElementById('rp-to-name').textContent   = toLoc.title;
-  document.getElementById('rp-date').value = _flow.date || '';
+  document.getElementById('rp-date').value  = _flow.date  || '';
+  document.getElementById('rp-title').value = '';
+  _flow.title = '';
 
   // Highlight selected color swatch
   document.querySelectorAll('#rp-color-grid .color-swatch').forEach(sw => {
@@ -386,34 +406,39 @@ function _updateAgenda() {
     header.textContent = formatDate(date);
     dayEl.appendChild(header);
 
-    locs.forEach(loc => {
-      const item = document.createElement('div');
-      item.className = 'agenda-item';
-      item.innerHTML = `
-        <span class="agenda-item-icon">${loc.icon}</span>
-        <div class="agenda-item-body">
-          <div class="agenda-item-title">${_esc(loc.title)}</div>
-          ${loc.startDate !== loc.endDate && loc.endDate
-            ? `<div class="agenda-item-detail">Stay: ${formatDate(loc.startDate)} – ${formatDate(loc.endDate)}</div>`
-            : ''}
-        </div>
-      `;
-      item.addEventListener('click', () => events.emit('ui:open-location', loc.id));
-      dayEl.appendChild(item);
-    });
+    _buildOrderedDayItems(locs, jrns).forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'agenda-item';
 
-    jrns.forEach(({ journey: j, fromL, toL }) => {
-      const item = document.createElement('div');
-      item.className = 'agenda-item';
-      item.innerHTML = `
-        <span class="agenda-journey-dot" style="background:${j.color}"></span>
-        <div class="agenda-item-body">
-          <div class="agenda-item-title">${_esc(fromL?.title ?? '?')} → ${_esc(toL?.title ?? '?')}</div>
-          <div class="agenda-item-detail">${j.durationText} · ${j.distanceText}${j.summary ? ` · ${_esc(j.summary)}` : ''}</div>
-        </div>
-      `;
-      item.addEventListener('click', () => events.emit('ui:open-journey', j.id));
-      dayEl.appendChild(item);
+      if (item.type === 'loc') {
+        const loc = item.data;
+        el.innerHTML = `
+          <span class="agenda-item-icon">${loc.icon}</span>
+          <div class="agenda-item-body">
+            <div class="agenda-item-title">${_esc(loc.title)}</div>
+            ${loc.startDate !== loc.endDate && loc.endDate
+              ? `<div class="agenda-item-detail">Stay: ${formatDate(loc.startDate)} \u2013 ${formatDate(loc.endDate)}</div>`
+              : ''}
+            ${loc.notes ? `<div class="agenda-item-notes">${_esc(loc.notes)}</div>` : ''}
+          </div>
+        `;
+        el.addEventListener('click', () => events.emit('ui:open-location', loc.id));
+      } else {
+        const { journey: j, fromL, toL } = item.data;
+        const headline = j.title
+          ? _esc(j.title)
+          : `${_esc(fromL?.title ?? '?')} \u2192 ${_esc(toL?.title ?? '?')}`;
+        el.innerHTML = `
+          <span class="agenda-journey-dot" style="background:${j.color}"></span>
+          <div class="agenda-item-body">
+            <div class="agenda-item-title">${headline}</div>
+            <div class="agenda-item-detail">${j.durationText} \u00b7 ${j.distanceText}${j.summary ? ` \u00b7 via ${_esc(j.summary)}` : ''}</div>
+          </div>
+        `;
+        el.addEventListener('click', () => events.emit('ui:open-journey', j.id));
+      }
+
+      dayEl.appendChild(el);
     });
 
     content.appendChild(dayEl);
@@ -450,6 +475,7 @@ function _resetFlow() {
   _flow.routes     = null;
   _flow.routeIndex = 0;
   _flow.date       = '';
+  _flow.title      = '';
   document.getElementById('btn-add-journey').classList.remove('active');
   events.emit('status:hide');
 }
@@ -534,6 +560,73 @@ export function _showToast(message, type = 'info', duration = 3000) {
 }
 
 // ── Utility ────────────────────────────────────────────────────────
+
+/**
+ * Order a day's locations and journeys so that journeys appear between
+ * their from/to locations when both are on the same day.
+ * Falls back to [all locs, all journeys] if no linking is possible.
+ */
+function _buildOrderedDayItems(locs, jrns) {
+  const locIds = new Set(locs.map(l => l.id));
+
+  // Journeys where both endpoints appear on this day
+  const linked   = jrns.filter(({ fromL, toL }) =>
+    fromL && toL && locIds.has(fromL.id) && locIds.has(toL.id));
+  const unlinked = jrns.filter(({ fromL, toL }) =>
+    !(fromL && toL && locIds.has(fromL.id) && locIds.has(toL.id)));
+
+  if (linked.length === 0) {
+    return [
+      ...locs.map(l => ({ type: 'loc', data: l })),
+      ...jrns.map(j => ({ type: 'journey', data: j })),
+    ];
+  }
+
+  // fromId → journey entry
+  const fromMap = new Map();
+  linked.forEach(j => fromMap.set(j.fromL.id, j));
+
+  // Locations that are destinations (don't start chains)
+  const toSet = new Set(linked.map(j => j.toL.id));
+
+  const result = [];
+  const placed = new Set();
+
+  // Walk chains starting from non-destination locations
+  const startLocs = locs.filter(l => !toSet.has(l.id));
+  const starts    = startLocs.length > 0 ? startLocs : locs;
+
+  for (const start of starts) {
+    if (placed.has(start.id)) continue;
+    result.push({ type: 'loc', data: start });
+    placed.add(start.id);
+
+    let cur     = start;
+    const seen  = new Set([start.id]); // cycle guard
+    while (fromMap.has(cur.id)) {
+      const entry = fromMap.get(cur.id);
+      result.push({ type: 'journey', data: entry });
+      const next = entry.toL;
+      if (!placed.has(next.id)) {
+        result.push({ type: 'loc', data: next });
+        placed.add(next.id);
+      }
+      if (seen.has(next.id)) break;
+      seen.add(next.id);
+      cur = next;
+    }
+  }
+
+  // Any locations not yet placed
+  locs.filter(l => !placed.has(l.id)).forEach(l => {
+    result.push({ type: 'loc', data: l });
+  });
+
+  // Unlinked journeys at end
+  unlinked.forEach(j => result.push({ type: 'journey', data: j }));
+
+  return result;
+}
 
 function _esc(str) {
   return String(str)

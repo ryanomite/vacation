@@ -1,26 +1,46 @@
 // Custom map overlay that renders a styled pill label at a LatLng position.
 // Must be instantiated after Google Maps API is loaded.
+//
+// Constructor: new MapLabel(lines, position, bgColor, cssClass?)
+//   lines    — string or string[] (multiple lines rendered as stacked divs)
+//   position — google.maps.LatLng
+//   bgColor  — CSS colour string
+//   cssClass — CSS class on the container div (default: 'map-journey-label')
 
 let _MapLabelClass = null;
+
+function _esc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 export function getMapLabelClass() {
   if (_MapLabelClass) return _MapLabelClass;
 
   _MapLabelClass = class MapLabel extends google.maps.OverlayView {
-    constructor(text, position, bgColor) {
+    constructor(lines, position, bgColor, cssClass = 'map-journey-label') {
       super();
-      this._text     = text;
-      this._position = position; // google.maps.LatLng
+      this._lines    = Array.isArray(lines) ? lines : [lines];
+      this._position = position;
       this._bgColor  = bgColor;
+      this._cssClass = cssClass;
       this._div      = null;
+    }
+
+    _renderContent() {
+      if (!this._div) return;
+      this._div.innerHTML = this._lines
+        .filter(Boolean)
+        .map(l => `<div>${_esc(l)}</div>`)
+        .join('');
+      this._div.style.backgroundColor = this._bgColor;
     }
 
     onAdd() {
       this._div = document.createElement('div');
-      this._div.className = 'map-journey-label';
-      this._div.textContent = this._text;
-      this._div.style.backgroundColor = this._bgColor;
-      // Render in the overlay layer (above tiles, below markers)
+      this._div.className = this._cssClass;
+      this._renderContent();
       this.getPanes().overlayLayer.appendChild(this._div);
     }
 
@@ -41,13 +61,11 @@ export function getMapLabelClass() {
       }
     }
 
-    update(text, bgColor) {
-      this._text    = text;
+    // lines: string or string[], bgColor: CSS string
+    update(lines, bgColor) {
+      this._lines  = Array.isArray(lines) ? lines : [lines];
       this._bgColor = bgColor;
-      if (this._div) {
-        this._div.textContent = text;
-        this._div.style.backgroundColor = bgColor;
-      }
+      this._renderContent();
     }
 
     updatePosition(position) {
