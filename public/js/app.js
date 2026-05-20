@@ -62,10 +62,7 @@ async function boot() {
 
     // 11. Wire hamburger toggle
     document.getElementById('menu-btn').addEventListener('click', () => {
-      const open = document.body.classList.toggle('toolbar-open');
-      document.getElementById('menu-btn').setAttribute('aria-expanded', String(open));
-      document.getElementById('menu-icon-open').classList.toggle('hidden', open);
-      document.getElementById('menu-icon-close').classList.toggle('hidden', !open);
+      document.body.classList.add('toolbar-open');
     });
 
     // 12. Spread labels after every map render
@@ -152,6 +149,11 @@ function _doSpread() {
     ...journeyManager.getJourneyLabels(),
   ]);
 }
+
+// ── Force-reload on BFCache restore (e.g. PWA re-open) ───────────
+window.addEventListener('pageshow', e => {
+  if (e.persisted) window.location.reload();
+});
 
 // ── PWA install prompt ─────────────────────────────────────────────
 

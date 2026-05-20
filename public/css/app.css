@@ -64,6 +64,7 @@ body.toolbar-open #toolbar {
 }
 #menu-btn:hover { background: rgba(30, 41, 59, 0.96); }
 #menu-btn svg { width: 18px; height: 18px; }
+body.toolbar-open #menu-btn { display: none; }
 
 #search-wrapper {
   display: flex;

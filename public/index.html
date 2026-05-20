@@ -23,16 +23,12 @@
   <!-- Full-screen map -->
   <div id="map"></div>
 
-  <!-- ── Hamburger FAB (always visible) ───────────────────────────── -->
+  <!-- ── Hamburger FAB (visible when toolbar is closed) ──────────────── -->
   <button id="menu-btn" title="Open toolbar" aria-label="Open toolbar" aria-expanded="false">
-    <svg id="menu-icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
       <line x1="4" y1="7"  x2="20" y2="7"/>
       <line x1="4" y1="12" x2="20" y2="12"/>
       <line x1="4" y1="17" x2="20" y2="17"/>
-    </svg>
-    <svg id="menu-icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="hidden">
-      <line x1="5" y1="5" x2="19" y2="19"/>
-      <line x1="19" y1="5" x2="5" y2="19"/>
     </svg>
   </button>
   <div id="toolbar">
@@ -123,6 +119,9 @@
         </div>
 
         <div class="panel-actions">
+          <button id="btn-copy-maps-url" class="btn-secondary btn-block">
+            🗺️ &nbsp;Copy Google Maps link
+          </button>
           <button id="btn-journey-from" class="btn-secondary btn-block">
             🛣️ &nbsp;Journey from here…
           </button>

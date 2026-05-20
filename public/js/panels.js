@@ -156,6 +156,19 @@ function _wireLocationEditor() {
     state.deleteLocation(_currentLocationId);
     closeRightPanel();
   });
+
+  // Copy Google Maps URL
+  document.getElementById('btn-copy-maps-url').addEventListener('click', () => {
+    if (!_currentLocationId) return;
+    const loc = state.getLocation(_currentLocationId);
+    if (!loc) return;
+    const url = `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
+    navigator.clipboard.writeText(url).then(() => {
+      _showToast('Google Maps link copied!', 'success', 2500);
+    }).catch(() => {
+      _showToast('Could not copy to clipboard', 'error', 3000);
+    });
+  });
 }
 
 export function openLocationEditor(id) {
