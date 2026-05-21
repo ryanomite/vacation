@@ -116,7 +116,7 @@ html, body {
 .dropdown-item.active { color: #93c5fd; }
 .dropdown-item:disabled { color: #334155; cursor: default; }
 
-.dropdown-item-icon { font-size: 16px; line-height: 1; flex-shrink: 0; }
+.dropdown-item-icon { font-size: 14px; line-height: 1; flex-shrink: 0; width: 16px; text-align: center; color: #fff; }
 .dropdown-item-label { flex: 1; }
 
 .dropdown-badge {
@@ -135,9 +135,7 @@ html, body {
   border-color: rgba(34,197,94,0.35);
 }
 
-.dropdown-item--save { color: #93c5fd; }
 .dropdown-item--save.saving { opacity: 0.5; cursor: default; }
-.dropdown-item--refresh { color: #fbbf24; }
 
 /* ── Menu stats ───────────────────────────────────────────────────── */
 .menu-stats {
