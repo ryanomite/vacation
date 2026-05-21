@@ -143,7 +143,9 @@ function _renderJourney(journey) {
   const label    = new MapLabel(
     [journey.title, journey.durationText].filter(Boolean),
     new google.maps.LatLng(midPt.lat, midPt.lng),
-    journey.color
+    journey.color,
+    'map-journey-label',
+    () => events.emit('ui:open-journey', journey.id)
   );
   label.setMap(map);
 

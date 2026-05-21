@@ -19,12 +19,13 @@ export function getMapLabelClass() {
   if (_MapLabelClass) return _MapLabelClass;
 
   _MapLabelClass = class MapLabel extends google.maps.OverlayView {
-    constructor(lines, position, bgColor, cssClass = 'map-journey-label') {
+    constructor(lines, position, bgColor, cssClass = 'map-journey-label', onClick = null) {
       super();
       this._lines    = Array.isArray(lines) ? lines : [lines];
       this._position = position;
       this._bgColor  = bgColor;
       this._cssClass = cssClass;
+      this._onClick  = onClick;
       this._div      = null;
       this._rawPos   = null;
       this._offset   = { x: 0, y: 0 };
@@ -42,6 +43,10 @@ export function getMapLabelClass() {
     onAdd() {
       this._div = document.createElement('div');
       this._div.className = this._cssClass;
+      if (this._onClick) {
+        this._div.style.cursor = 'pointer';
+        this._div.addEventListener('click', e => { e.stopPropagation(); this._onClick(); });
+      }
       this._renderContent();
       // floatPane sits above the polyline SVG layer, keeping labels readable
       this.getPanes().floatPane.appendChild(this._div);
