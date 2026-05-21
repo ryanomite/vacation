@@ -48,6 +48,8 @@ export function toggle() {
 
 export function updateRemoteUser(name, lat, lng) {
   if (!_map) return;
+  // Don't render our own broadcast — we already have the GPS dot
+  if (isShareMode() && name === getName()) return;
   const latLng = new google.maps.LatLng(lat, lng);
 
   if (_remoteOverlays.has(name)) {

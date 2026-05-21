@@ -283,6 +283,20 @@ window.addEventListener('pageshow', e => {
   if (e.persisted) window.location.reload();
 });
 
+// ── Screen Wake Lock — prevents device screen-off while app is open ──
+let _wakeLock = null;
+async function _acquireWakeLock() {
+  if (!navigator.wakeLock) return;
+  try {
+    _wakeLock = await navigator.wakeLock.request('screen');
+  } catch (_) { /* permission denied or unavailable */ }
+}
+_acquireWakeLock();
+// Wake lock is released automatically when the page is hidden; re-acquire on return
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') _acquireWakeLock();
+});
+
 // ── PWA install prompt ─────────────────────────────────────────────
 
 let _installPrompt = null;
