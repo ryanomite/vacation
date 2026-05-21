@@ -34,6 +34,8 @@ app.get('/api/events', (req, res) => {
   _sseClients.add(res);
   req.on('close', () => _sseClients.delete(res));
 });
+
+app.get('/api/config', (req, res) => {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'GOOGLE_MAPS_API_KEY environment variable is not set' });
