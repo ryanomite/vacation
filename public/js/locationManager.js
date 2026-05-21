@@ -59,6 +59,18 @@ export function renderAll() {
   }
 }
 
+export function clearAll() {
+  _markers.forEach(m => m.setMap(null));
+  _markers.clear();
+  _titleLabels.forEach(l => l.setMap(null));
+  _titleLabels.clear();
+}
+
+/** Add a marker for a single location (used when creating a stop mid-journey). */
+export function renderLocation(loc) {
+  _addMarker(loc);
+}
+
 export function getMarker(id) {
   return _markers.get(id) ?? null;
 }

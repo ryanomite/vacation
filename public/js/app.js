@@ -56,8 +56,12 @@ async function boot() {
         .catch(e => console.warn('SW registration failed:', e));
     }
 
-    // 10. Start GPS dot
-    mapManager.initGeolocation();
+    // 10. Start GPS dot and wire tap → Follow Me
+    mapManager.initGeolocation(() => {
+      const nowOn = document.getElementById('follow-me-badge').textContent !== 'ON';
+      _setFollowMeUI(nowOn);
+      mapManager.setFollowMe(nowOn, () => _setFollowMeUI(false));
+    });
 
     // 11. Wire dropdown menu
     const menuBtn  = document.getElementById('menu-btn');
@@ -122,6 +126,22 @@ async function boot() {
 
     // 15. Spread labels after every map render
     mapManager.getMap().addListener('idle', _doSpread);
+
+    // 16. Connect to live-update stream (SSE)
+    _connectSSE();
+
+    // 17. Handle requests from panels to activate edit mode
+    events.on('ui:activate-edit-mode', () => {
+      const badge = document.getElementById('edit-mode-badge');
+      if (badge.textContent === 'ON') return; // already on
+      badge.textContent = 'ON';
+      badge.classList.add('on');
+      document.getElementById('btn-edit-mode').classList.add('active');
+      ['btn-add-location', 'btn-add-journey'].forEach(id => {
+        document.getElementById(id).disabled = false;
+      });
+      events.emit('editmode:changed', true);
+    });
 
   } catch (err) {
     showError(err);
@@ -203,6 +223,38 @@ function _doSpread() {
     ...locationManager.getTitleLabels(),
     ...journeyManager.getJourneyLabels(),
   ]);
+}
+
+// ── Live updates via Server-Sent Events ───────────────────────────
+
+function _connectSSE() {
+  if (typeof EventSource === 'undefined') return;
+  const es = new EventSource('/api/events');
+  es.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'data-changed') _remoteReload();
+    } catch (_) {}
+  };
+  // EventSource auto-reconnects on its own; no manual retry needed.
+}
+
+async function _remoteReload() {
+  // Don't interrupt an active edit session
+  if (!document.getElementById('right-panel').classList.contains('hidden')) {
+    _showToast('Map updated by another device', 'info', 3000);
+    return;
+  }
+  try {
+    const data = await api.loadData();
+    locationManager.clearAll();
+    journeyManager.clearAll();
+    state.init(data);
+    locationManager.renderAll();
+    journeyManager.renderAll();
+    try { localStorage.setItem('vacation-data', JSON.stringify(state.serialize())); } catch (_) {}
+    _showToast('Map refreshed', 'info', 2000);
+  } catch (_) { /* fail silently — network blip */ }
 }
 
 // ── Force-reload on BFCache restore (e.g. PWA re-open) ───────────

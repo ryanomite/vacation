@@ -1,9 +1,11 @@
 // panels.js — orchestrates all right-panel UI and the journey-creation flow
 
-import * as state          from './state.js';
-import * as events         from './events.js';
-import * as journeyManager from './journeyManager.js';
-import { ICONS, COLORS, DEFAULT_JOURNEY_COLOR, formatDate, getIconDef, makeMarkerIconHTML, parseDurationMinutes, formatMinutes } from './utils.js';
+import * as state           from './state.js';
+import * as events          from './events.js';
+import * as journeyManager  from './journeyManager.js';
+import * as locationManager from './locationManager.js';
+import * as mapManager      from './mapManager.js';
+import { ICONS, COLORS, DEFAULT_ICON, DEFAULT_JOURNEY_COLOR, formatDate, getIconDef, makeMarkerIconHTML, parseDurationMinutes, formatMinutes, generateId } from './utils.js';
 
 // ── Journey flow state machine ─────────────────────────────────────
 // Steps: 'idle' | 'select-from' | 'select-to' | 'select-route'
@@ -167,11 +169,11 @@ function _wireLocationEditor() {
     });
   });
 
-  // Delete location
-  document.getElementById('btn-delete-location').addEventListener('click', () => {
+  // Delete location (with smart merge of adjacent journeys)
+  document.getElementById('btn-delete-location').addEventListener('click', async () => {
     if (!_currentLocationId) return;
-    if (!confirm('Delete this location? Any journeys connected to it will also be removed.')) return;
-    state.deleteLocation(_currentLocationId);
+    if (!confirm('Delete this location? Adjacent journeys on the same date will be merged automatically.')) return;
+    await _deleteLocationWithMerge(_currentLocationId);
     closeRightPanel();
   });
 
@@ -187,6 +189,39 @@ function _wireLocationEditor() {
       _showToast('Could not copy to clipboard', 'error', 3000);
     });
   });
+}
+
+async function _deleteLocationWithMerge(id) {
+  const journeys = state.getJourneys();
+  const incoming = journeys.filter(j => j.toId === id);
+  const outgoing = journeys.filter(j => j.fromId === id);
+  const toDelete  = new Set();
+
+  for (const jIn of incoming) {
+    const jOut = outgoing.find(j => (j.date || '') === (jIn.date || ''));
+    if (!jOut) continue;
+    const fromLoc = state.getLocation(jIn.fromId);
+    const toLoc   = state.getLocation(jOut.toId);
+    if (!fromLoc || !toLoc) continue;
+    try {
+      const result = await mapManager.getDirections(fromLoc, toLoc);
+      const route  = result.routes[0];
+      state.updateJourney(jOut.id, {
+        fromId:       jIn.fromId,
+        durationText: route.legs[0].duration.text,
+        distanceText: route.legs[0].distance.text,
+        summary:      route.summary || '',
+        path:         route.overview_path.map(p => ({ lat: p.lat(), lng: p.lng() })),
+      });
+    } catch (_) {
+      state.updateJourney(jOut.id, { fromId: jIn.fromId });
+    }
+    journeyManager.rebuildRenderer(jOut.id);
+    toDelete.add(jIn.id);
+  }
+
+  toDelete.forEach(jId => state.deleteJourney(jId));
+  state.deleteLocation(id);
 }
 
 export function openLocationEditor(id) {
@@ -243,6 +278,82 @@ function _wireJourneyEditor() {
     state.deleteJourney(_currentJourneyId);
     closeRightPanel();
   });
+
+  const addStopInput = document.getElementById('je-add-stop');
+  if (addStopInput) {
+    const addStopAC = mapManager.createAutocomplete(addStopInput);
+    addStopAC.addListener('place_changed', async () => {
+      const place = addStopAC.getPlace();
+      if (!place?.geometry?.location) return;
+      addStopInput.value = '';
+      await _addStopToJourney(place);
+    });
+  }
+}
+
+async function _addStopToJourney(place) {
+  const jId = _currentJourneyId;
+  const j   = state.getJourney(jId);
+  if (!j || !place?.geometry?.location) return;
+
+  const origToId  = j.toId;
+  const origToLoc = state.getLocation(origToId);
+  const fromLoc   = state.getLocation(j.fromId);
+  if (!fromLoc || !origToLoc) return;
+
+  events.emit('status:show', { message: 'Adding stop and recalculating routes…', type: 'info' });
+
+  const newLoc = {
+    id:        generateId(),
+    title:     place.name || place.formatted_address || 'New Stop',
+    icon:      DEFAULT_ICON,
+    color:     j.color,
+    lat:       place.geometry.location.lat(),
+    lng:       place.geometry.location.lng(),
+    startDate: j.date || '',
+    endDate:   j.date || '',
+    notes:     '',
+  };
+  state.addLocation(newLoc);
+  locationManager.renderLocation(newLoc);
+
+  try {
+    const r1  = await mapManager.getDirections(fromLoc, newLoc);
+    const rt1 = r1.routes[0];
+    state.updateJourney(jId, {
+      toId:         newLoc.id,
+      durationText: rt1.legs[0].duration.text,
+      distanceText: rt1.legs[0].distance.text,
+      summary:      rt1.summary || '',
+      path:         rt1.overview_path.map(p => ({ lat: p.lat(), lng: p.lng() })),
+    });
+    journeyManager.rebuildRenderer(jId);
+
+    const r2  = await mapManager.getDirections(newLoc, origToLoc);
+    const rt2 = r2.routes[0];
+    const newJ = {
+      id:           generateId(),
+      fromId:       newLoc.id,
+      toId:         origToId,
+      title:        '',
+      date:         j.date || '',
+      color:        j.color,
+      durationText: rt2.legs[0].duration.text,
+      distanceText: rt2.legs[0].distance.text,
+      summary:      rt2.summary || '',
+      path:         rt2.overview_path.map(p => ({ lat: p.lat(), lng: p.lng() })),
+    };
+    state.addJourney(newJ);
+    journeyManager.rebuildRenderer(newJ.id);
+  } catch (err) {
+    _showToast(`Could not add stop: ${err.message}`, 'error', 4000);
+    events.emit('status:hide');
+    return;
+  }
+
+  events.emit('status:hide');
+  closeRightPanel();
+  events.emit('ui:open-location', newLoc.id);
 }
 
 export function openJourneyEditor(id) {
@@ -300,8 +411,16 @@ function _openLocationView(id) {
     </div>
     ${dateStr ? `<div class="info-modal-dates">${dateStr}</div>` : ''}
     ${loc.notes ? `<div class="info-modal-notes">${_esc(loc.notes)}</div>` : ''}
+    <button class="info-modal-btn info-modal-btn--edit" id="info-modal-edit-btn">✏️ &nbsp;Edit</button>
     <button class="info-modal-btn" id="info-modal-maps-btn">🗺️ &nbsp;Copy Google Maps link</button>
   `;
+
+  body.querySelector('#info-modal-edit-btn').addEventListener('click', () => {
+    const savedId = id;
+    _closeInfoModal();
+    events.emit('ui:activate-edit-mode');
+    openLocationEditor(savedId);
+  });
 
   body.querySelector('#info-modal-maps-btn').addEventListener('click', () => {
     const url = `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
@@ -332,8 +451,16 @@ function _openJourneyView(id) {
     </div>
     ${meta    ? `<div class="info-modal-meta">${meta}</div>` : ''}
     ${dateStr ? `<div class="info-modal-dates">${dateStr}</div>` : ''}
+    <button class="info-modal-btn info-modal-btn--edit" id="info-modal-edit-btn">✏️ &nbsp;Edit</button>
     <button class="info-modal-btn" id="info-modal-dir-btn">🗺️ &nbsp;Copy Google Maps directions</button>
   `;
+
+  body.querySelector('#info-modal-edit-btn').addEventListener('click', () => {
+    const savedId = id;
+    _closeInfoModal();
+    events.emit('ui:activate-edit-mode');
+    openJourneyEditor(savedId);
+  });
 
   body.querySelector('#info-modal-dir-btn').addEventListener('click', () => {
     const url = `https://www.google.com/maps/dir/${fromL.lat},${fromL.lng}/${toL.lat},${toL.lng}`;

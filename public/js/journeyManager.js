@@ -31,6 +31,21 @@ export function renderAll() {
   state.getJourneys().forEach(j => _renderJourney(j));
 }
 
+export function clearAll() {
+  _renderers.forEach(r => {
+    r.polyline.setMap(null);
+    r.label.setMap(null);
+  });
+  _renderers.clear();
+}
+
+/** Remove and re-create the renderer for an already-updated journey in state. */
+export function rebuildRenderer(id) {
+  _removeRenderer(id);
+  const j = state.getJourney(id);
+  if (j) _renderJourney(j);
+}
+
 export function getJourneyLabels() {
   return Array.from(_renderers.values()).map(r => r.label);
 }

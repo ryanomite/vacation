@@ -9,11 +9,31 @@ const PORT = process.env.PORT || 3000;
 const DATA_FILE   = path.join(__dirname, 'data', 'data.json');
 const BACKUP_DIR  = path.join(__dirname, 'data', 'backups');
 
+// ── Server-Sent Events clients ─────────────────────────────────────
+const _sseClients = new Set();
+
+function _broadcast(payload) {
+  const msg = `data: ${JSON.stringify(payload)}\n\n`;
+  _sseClients.forEach(res => {
+    try { res.write(msg); } catch (_) { _sseClients.delete(res); }
+  });
+}
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Provide the Maps API key to the client — never committed to git
-app.get('/api/config', (req, res) => {
+// Live-update push channel (SSE — no extra dependencies)
+app.get('/api/events', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type':  'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection':    'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.write('retry: 3000\n\n');
+  _sseClients.add(res);
+  req.on('close', () => _sseClients.delete(res));
+});
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'GOOGLE_MAPS_API_KEY environment variable is not set' });
@@ -62,6 +82,7 @@ app.post('/api/data', (req, res) => {
     fs.writeFileSync(path.join(BACKUP_DIR, `${stamp}.json`), payload, 'utf8');
 
     res.json({ ok: true });
+    _broadcast({ type: 'data-changed' });
   } catch (err) {
     console.error('Failed to save data:', err.message);
     res.status(500).json({ error: 'Failed to save vacation data' });

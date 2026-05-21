@@ -752,6 +752,8 @@ html, body {
   margin-top: 8px;
 }
 .info-modal-btn:hover { background: rgba(255,255,255,0.12); }
+.info-modal-btn--edit { color: #a5f3fc; border-color: rgba(165,243,252,0.25); }
+.info-modal-btn--edit:hover { background: rgba(165,243,252,0.1); }
 
 /* ── Map journey labels ───────────────────────────────────────────── */
 .map-journey-label {
@@ -844,7 +846,7 @@ html, body {
   background: #4285F4;
   border: 3px solid #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-  pointer-events: none;
+  pointer-events: auto;
   transform: translate(-50%, -50%);
 }
 .gps-dot::before {

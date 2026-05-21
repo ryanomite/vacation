@@ -158,11 +158,16 @@ export function getPlaceDetails(placeId) {
 
 // ── Geolocation (GPS dot) ──────────────────────────────────────────
 
-export function initGeolocation() {
+export function initGeolocation(onTap) {
   if (!navigator.geolocation) return;
 
   const dot = document.createElement('div');
   dot.className = 'gps-dot';
+
+  if (onTap) {
+    dot.style.cursor = 'pointer';
+    dot.addEventListener('click', e => { e.stopPropagation(); onTap(); });
+  }
 
   const overlay = new google.maps.OverlayView();
   overlay.onAdd = function () {
