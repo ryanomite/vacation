@@ -2,7 +2,7 @@
 
 const SHARE_MODE_KEY = 'share-mode';
 const SHARE_NAME_KEY = 'share-name';
-const SHARE_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const SHARE_INTERVAL = 60 * 1000; // 1 minute
 const SHARE_CACHE    = 'share-data-v1';
 
 let _map        = null;
@@ -97,8 +97,13 @@ export function updateRemoteUser(name, lat, lng) {
 function _start() {
   if (!navigator.geolocation) return;
 
+  // Get an initial fix then POST immediately; watchPosition keeps it updated.
   navigator.geolocation.getCurrentPosition(
-    pos => { _lastPos = { lat: pos.coords.latitude, lng: pos.coords.longitude }; _notifySW(); },
+    pos => {
+      _lastPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      _notifySW();
+      _postLocation(); // first POST fires only after we have a position
+    },
     () => {},
     { enableHighAccuracy: false, maximumAge: 60000, timeout: 10000 }
   );
@@ -112,7 +117,6 @@ function _start() {
     { enableHighAccuracy: false, maximumAge: 60000 }
   );
 
-  _postLocation();
   _intervalId = setInterval(_postLocation, SHARE_INTERVAL);
   _registerPeriodicSync();
 }

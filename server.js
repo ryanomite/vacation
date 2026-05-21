@@ -32,7 +32,11 @@ app.get('/api/events', (req, res) => {
   });
   res.write('retry: 3000\n\n');
   _sseClients.add(res);
-  req.on('close', () => _sseClients.delete(res));
+  // Keepalive comment every 25s — prevents nginx/proxy from closing idle streams
+  const keepalive = setInterval(() => {
+    try { res.write(':ping\n\n'); } catch (_) { clearInterval(keepalive); _sseClients.delete(res); }
+  }, 25000);
+  req.on('close', () => { clearInterval(keepalive); _sseClients.delete(res); });
 });
 
 app.get('/api/config', (req, res) => {
