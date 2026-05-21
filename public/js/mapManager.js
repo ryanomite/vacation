@@ -4,6 +4,7 @@
 let _map = null;
 let _followMe = false;
 let _onFollowMeDisabled = null;
+let _lastKnownPosition = null;
 let _geocoder = null;
 let _directionsService = null;
 let _autocomplete = null;
@@ -114,6 +115,9 @@ export function getDirections(from, to) {
 export function setFollowMe(enabled, onDisabled) {
   _followMe = enabled;
   _onFollowMeDisabled = onDisabled || null;
+  // Pan to current position immediately so the user doesn't have to wait
+  // for the next watchPosition tick to see where they are.
+  if (enabled && _lastKnownPosition) _map.panTo(_lastKnownPosition);
 }
 
 // ── Marker helpers ─────────────────────────────────────────────────
@@ -181,6 +185,7 @@ export function initGeolocation(onTap) {
   navigator.geolocation.watchPosition(
     pos => {
       const latLng = new google.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
+      _lastKnownPosition = latLng;
 
       if (!overlayAdded) {
         overlay.setMap(_map);
