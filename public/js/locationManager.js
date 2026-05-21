@@ -195,7 +195,7 @@ function _addMarker(loc) {
     _moveLocation(loc.id, pos.lat(), pos.lng());
   });
 
-  // Title overlay above the marker
+  // Title overlay above the marker (hidden when title is empty)
   const MapLabel   = getMapLabelClass();
   const titleLabel = new MapLabel(
     [loc.title],
@@ -203,7 +203,7 @@ function _addMarker(loc) {
     'rgba(15,23,42,0.82)',
     'map-location-label'
   );
-  titleLabel.setMap(map);
+  titleLabel.setMap(loc.title ? map : null);
 
   _markers.set(loc.id, marker);
   _titleLabels.set(loc.id, titleLabel);
@@ -216,7 +216,10 @@ function _syncMarker(id) {
   marker.setTitle(loc.title);
   marker.setIcon(mapManager.makeMarkerIcon(loc.color, getIconDef(loc.icon)));
   const titleLabel = _titleLabels.get(id);
-  if (titleLabel) titleLabel.update([loc.title], 'rgba(15,23,42,0.82)');
+  if (titleLabel) {
+    titleLabel.update([loc.title], 'rgba(15,23,42,0.82)');
+    titleLabel.setMap(loc.title ? mapManager.getMap() : null);
+  }
 }
 
 function _removeMarker(id) {

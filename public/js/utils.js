@@ -71,6 +71,42 @@ export function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
+/** Generate an inline SVG string for a map marker (for HTML embedding, not data URL) */
+export function makeMarkerIconHTML(color, iconDef, size = 48) {
+  const cx = size / 2;
+  const r  = cx - 3;
+  const is = Math.round(size * 0.5);
+  const io = Math.round(cx - is / 2);
+  let inner = '';
+  if (iconDef?.path) {
+    inner = `<svg x="${io}" y="${io}" width="${is}" height="${is}" viewBox="0 0 ${iconDef.width} 512"><path fill="white" d="${iconDef.path}"/></svg>`;
+  } else if (iconDef?.text) {
+    inner = `<text x="${cx}" y="${cx}" text-anchor="middle" dominant-baseline="central" fill="white" font-size="${Math.round(size * 0.39)}" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="700">${iconDef.text}</text>`;
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><circle cx="${cx}" cy="${cx}" r="${r}" fill="${color}"/>${inner}<circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="white" stroke-opacity="0.85" stroke-width="2.5"/></svg>`;
+}
+
+/** Parse a Google Maps duration string (e.g. "2 hours 30 mins") into total minutes */
+export function parseDurationMinutes(text) {
+  if (!text) return 0;
+  let mins = 0;
+  const h = text.match(/(\d+)\s+hour/);
+  const m = text.match(/(\d+)\s+min/);
+  if (h) mins += parseInt(h[1], 10) * 60;
+  if (m) mins += parseInt(m[1], 10);
+  return mins;
+}
+
+/** Format total minutes as e.g. "3h 45m" */
+export function formatMinutes(total) {
+  if (!total) return '—';
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 /** Format a YYYY-MM-DD string for display */
 export function formatDate(dateStr) {
   if (!dateStr) return '';

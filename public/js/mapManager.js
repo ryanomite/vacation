@@ -127,7 +127,7 @@ export function setFollowMe(enabled, onDisabled) {
 export function makeMarkerIcon(color, iconDef) {
   let inner = '';
   if (iconDef?.path) {
-    inner = `<svg x="9" y="9" width="30" height="30" viewBox="0 0 ${iconDef.width} 512"><path fill="white" d="${iconDef.path}"/></svg>`;
+    inner = `<svg x="12" y="12" width="24" height="24" viewBox="0 0 ${iconDef.width} 512"><path fill="white" d="${iconDef.path}"/></svg>`;
   } else if (iconDef?.text) {
     inner = `<text x="24" y="24" text-anchor="middle" dominant-baseline="central" fill="white" font-size="19" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="700">${iconDef.text}</text>`;
   }

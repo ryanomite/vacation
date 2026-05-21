@@ -74,6 +74,12 @@
       <span class="dropdown-item-icon">🔄</span>
       <span class="dropdown-item-label">Force Refresh</span>
     </button>
+    <div class="dropdown-divider"></div>
+    <div id="menu-stats" class="menu-stats">
+      <div class="menu-stat"><span class="menu-stat-value" id="stat-locs">0</span><span class="menu-stat-label">Stops</span></div>
+      <div class="menu-stat"><span class="menu-stat-value" id="stat-days">0</span><span class="menu-stat-label">Days</span></div>
+      <div class="menu-stat"><span class="menu-stat-value" id="stat-drive">—</span><span class="menu-stat-label">Driving</span></div>
+    </div>
   </div>
 
   <!-- ── Status Banner (instructions / feedback) ──────────────────── -->
@@ -238,6 +244,14 @@
       <button id="btn-close-agenda" class="btn-close-panel" aria-label="Close agenda">✕</button>
     </div>
     <div id="agenda-content" class="panel-scroll"></div>
+  </div>
+
+  <!-- ── Info Modal (view-only — non-edit mode) ──────────────────── -->
+  <div id="info-modal" class="hidden">
+    <div class="info-modal-card">
+      <button id="btn-close-info-modal" class="info-modal-close" aria-label="Close">✕</button>
+      <div id="info-modal-body"></div>
+    </div>
   </div>
 
   <!-- ── Toast notifications ──────────────────────────────────────── -->

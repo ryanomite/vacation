@@ -3,7 +3,7 @@
 import * as state          from './state.js';
 import * as events         from './events.js';
 import * as journeyManager from './journeyManager.js';
-import { ICONS, COLORS, DEFAULT_JOURNEY_COLOR, formatDate } from './utils.js';
+import { ICONS, COLORS, DEFAULT_JOURNEY_COLOR, formatDate, getIconDef, makeMarkerIconHTML, parseDurationMinutes, formatMinutes } from './utils.js';
 
 // ── Journey flow state machine ─────────────────────────────────────
 // Steps: 'idle' | 'select-from' | 'select-to' | 'select-route'
@@ -18,6 +18,7 @@ const _flow = {
 
 let _currentLocationId = null; // which location the editor is showing
 let _currentJourneyId  = null; // which existing journey the editor is showing
+let _editMode          = false; // mirrors the global edit mode toggle
 
 // ── Init ───────────────────────────────────────────────────────────
 
@@ -33,6 +34,7 @@ export function init() {
   _wirePanelCloseButtons();
   _wireToolbar();
   _wireEvents();
+  _updateMenuStats();
 }
 
 // ── Event wiring ───────────────────────────────────────────────────
@@ -70,6 +72,7 @@ function _wireEvents() {
 
   // Keep agenda fresh
   events.on('editmode:changed', enabled => {
+    _editMode = enabled;
     if (!enabled) {
       journeyManager.clearPreviews();
       _resetFlow();
@@ -80,6 +83,7 @@ function _wireEvents() {
     if (!document.getElementById('agenda-panel').classList.contains('hidden')) {
       _updateAgenda();
     }
+    _updateMenuStats();
   });
 }
 
@@ -105,6 +109,12 @@ function _wirePanelCloseButtons() {
   document.getElementById('modal-backdrop').addEventListener('click', closeRightPanel);
   document.getElementById('btn-close-agenda')?.addEventListener('click', _closeAgenda);
   document.getElementById('btn-status-cancel').addEventListener('click', _cancelFlow);
+
+  // Info modal close
+  document.getElementById('btn-close-info-modal').addEventListener('click', _closeInfoModal);
+  document.getElementById('info-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) _closeInfoModal();
+  });
 }
 
 // ── Location Editor ────────────────────────────────────────────────
@@ -180,6 +190,10 @@ function _wireLocationEditor() {
 }
 
 export function openLocationEditor(id) {
+  if (!_editMode) {
+    _openLocationView(id);
+    return;
+  }
   const loc = state.getLocation(id);
   if (!loc) return;
 
@@ -232,6 +246,10 @@ function _wireJourneyEditor() {
 }
 
 export function openJourneyEditor(id) {
+  if (!_editMode) {
+    _openJourneyView(id);
+    return;
+  }
   const j     = state.getJourney(id);
   const fromL = state.getLocation(j?.fromId);
   const toL   = state.getLocation(j?.toId);
@@ -254,6 +272,87 @@ export function openJourneyEditor(id) {
 
   _showPanelView('journey-editor');
   _openRightPanel();
+}
+
+// ── Info Modal (view-only — non-edit mode) ─────────────────────────
+
+function _openLocationView(id) {
+  const loc = state.getLocation(id);
+  if (!loc) return;
+  _currentLocationId = id;
+  _currentJourneyId  = null;
+
+  const iconDef   = getIconDef(loc.icon);
+  const markerSvg = makeMarkerIconHTML(loc.color, iconDef, 52);
+
+  let dateStr = '';
+  if (loc.startDate && loc.endDate && loc.startDate !== loc.endDate) {
+    dateStr = `${formatDate(loc.startDate)} – ${formatDate(loc.endDate)}`;
+  } else if (loc.startDate) {
+    dateStr = formatDate(loc.startDate);
+  }
+
+  const body = document.getElementById('info-modal-body');
+  body.innerHTML = `
+    <div class="info-modal-header">
+      <div class="info-modal-marker">${markerSvg}</div>
+      <div class="info-modal-title">${_esc(loc.title || 'Untitled')}</div>
+    </div>
+    ${dateStr ? `<div class="info-modal-dates">${dateStr}</div>` : ''}
+    ${loc.notes ? `<div class="info-modal-notes">${_esc(loc.notes)}</div>` : ''}
+    <button class="info-modal-btn" id="info-modal-maps-btn">🗺️ &nbsp;Copy Google Maps link</button>
+  `;
+
+  body.querySelector('#info-modal-maps-btn').addEventListener('click', () => {
+    const url = `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
+    navigator.clipboard.writeText(url)
+      .then(() => _showToast('Google Maps link copied!', 'success', 2500))
+      .catch(() => _showToast('Could not copy to clipboard', 'error', 3000));
+  });
+
+  _openInfoModal();
+}
+
+function _openJourneyView(id) {
+  const j     = state.getJourney(id);
+  const fromL = state.getLocation(j?.fromId);
+  const toL   = state.getLocation(j?.toId);
+  if (!j || !fromL || !toL) return;
+  _currentJourneyId  = id;
+  _currentLocationId = null;
+
+  const meta    = [j.durationText, j.distanceText, j.summary ? `via ${j.summary}` : ''].filter(Boolean).join(' · ');
+  const dateStr = j.date ? formatDate(j.date) : '';
+
+  const body = document.getElementById('info-modal-body');
+  body.innerHTML = `
+    <div class="info-modal-journey-header">
+      <span class="info-modal-journey-dot" style="background:${j.color}"></span>
+      <span>${_esc(fromL.title)} → ${_esc(toL.title)}</span>
+    </div>
+    ${meta    ? `<div class="info-modal-meta">${meta}</div>` : ''}
+    ${dateStr ? `<div class="info-modal-dates">${dateStr}</div>` : ''}
+    <button class="info-modal-btn" id="info-modal-dir-btn">🗺️ &nbsp;Copy Google Maps directions</button>
+  `;
+
+  body.querySelector('#info-modal-dir-btn').addEventListener('click', () => {
+    const url = `https://www.google.com/maps/dir/${fromL.lat},${fromL.lng}/${toL.lat},${toL.lng}`;
+    navigator.clipboard.writeText(url)
+      .then(() => _showToast('Directions link copied!', 'success', 2500))
+      .catch(() => _showToast('Could not copy to clipboard', 'error', 3000));
+  });
+
+  _openInfoModal();
+}
+
+function _openInfoModal() {
+  document.getElementById('info-modal').classList.remove('hidden');
+}
+
+function _closeInfoModal() {
+  document.getElementById('info-modal').classList.add('hidden');
+  _currentLocationId = null;
+  _currentJourneyId  = null;
 }
 
 // ── Route Picker (new journey) ─────────────────────────────────────
@@ -439,9 +538,18 @@ function _updateAgenda() {
       el.className = 'agenda-item';
 
       if (item.type === 'loc') {
-        const loc = item.data;
+        const loc     = item.data;
+        const iconDef = getIconDef(loc.icon);
+        let iconHtml;
+        if (iconDef?.path) {
+          iconHtml = `<svg class="agenda-item-icon-svg" style="color:${loc.color}" viewBox="0 0 ${iconDef.width} 512"><path fill="currentColor" d="${iconDef.path}"/></svg>`;
+        } else if (iconDef?.text) {
+          iconHtml = `<svg class="agenda-item-icon-svg" style="color:${loc.color}" viewBox="0 0 24 24"><text x="12" y="17" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor">${iconDef.text}</text></svg>`;
+        } else {
+          iconHtml = `<span class="agenda-item-dot" style="background:${loc.color}"></span>`;
+        }
         el.innerHTML = `
-          <span class="agenda-item-icon">${loc.icon}</span>
+          ${iconHtml}
           <div class="agenda-item-body">
             <div class="agenda-item-title">${_esc(loc.title)}</div>
             ${loc.startDate !== loc.endDate && loc.endDate
@@ -452,14 +560,10 @@ function _updateAgenda() {
         `;
         el.addEventListener('click', () => events.emit('ui:open-location', loc.id));
       } else {
-        const { journey: j, fromL, toL } = item.data;
-        const headline = j.title
-          ? _esc(j.title)
-          : `${_esc(fromL?.title ?? '?')} \u2192 ${_esc(toL?.title ?? '?')}`;
+        const { journey: j } = item.data;
         el.innerHTML = `
           <span class="agenda-journey-dot" style="background:${j.color}"></span>
           <div class="agenda-item-body">
-            <div class="agenda-item-title">${headline}</div>
             <div class="agenda-item-detail">${j.durationText} \u00b7 ${j.distanceText}${j.summary ? ` \u00b7 via ${_esc(j.summary)}` : ''}</div>
           </div>
         `;
@@ -471,6 +575,56 @@ function _updateAgenda() {
 
     content.appendChild(dayEl);
   });
+
+  // Stats footer
+  const { days: totalDays, driveTime, locations: totalLocs } = _computeStats();
+  const statsEl = document.createElement('div');
+  statsEl.className = 'agenda-stats';
+  statsEl.innerHTML = `
+    <div class="agenda-stat"><span class="agenda-stat-value">${totalLocs}</span><span class="agenda-stat-label">Stops</span></div>
+    <div class="agenda-stat"><span class="agenda-stat-value">${totalDays}</span><span class="agenda-stat-label">Days</span></div>
+    <div class="agenda-stat"><span class="agenda-stat-value">${driveTime}</span><span class="agenda-stat-label">Driving</span></div>
+  `;
+  content.appendChild(statsEl);
+}
+
+// ── Stats ─────────────────────────────────────────────────────────
+
+function _computeStats() {
+  const locations = state.getLocations();
+  const journeys  = state.getJourneys();
+
+  const dates = new Set();
+  locations.forEach(loc => {
+    if (!loc.startDate) return;
+    const end = (loc.endDate && loc.endDate >= loc.startDate) ? loc.endDate : loc.startDate;
+    const [sy, sm, sd] = loc.startDate.split('-').map(Number);
+    const [ey, em, ed] = end.split('-').map(Number);
+    const cur  = new Date(sy, sm - 1, sd);
+    const last = new Date(ey, em - 1, ed);
+    while (cur <= last) {
+      dates.add(cur.toISOString().slice(0, 10));
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+  journeys.forEach(j => { if (j.date) dates.add(j.date); });
+
+  const totalMins = journeys.reduce((acc, j) => acc + parseDurationMinutes(j.durationText), 0);
+
+  return {
+    days:      dates.size,
+    driveTime: formatMinutes(totalMins),
+    locations: locations.length,
+  };
+}
+
+function _updateMenuStats() {
+  const { days, driveTime, locations: locs } = _computeStats();
+  const el = document.getElementById('menu-stats');
+  if (!el) return;
+  el.querySelector('#stat-locs').textContent  = locs;
+  el.querySelector('#stat-days').textContent  = days;
+  el.querySelector('#stat-drive').textContent = driveTime;
 }
 
 // ── Panel visibility helpers ───────────────────────────────────────
