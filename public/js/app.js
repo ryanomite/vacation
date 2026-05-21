@@ -74,7 +74,7 @@ async function boot() {
       }
     });
     dropdown.addEventListener('click', e => e.stopPropagation());
-    ['btn-add-location', 'btn-add-journey', 'btn-agenda', 'btn-save'].forEach(id => {
+    ['btn-add-location', 'btn-add-journey', 'btn-agenda', 'btn-save', 'btn-refresh'].forEach(id => {
       document.getElementById(id).addEventListener('click', () => {
         dropdown.classList.add('hidden');
         menuBtn.setAttribute('aria-expanded', 'false');
@@ -94,7 +94,33 @@ async function boot() {
       events.emit('editmode:changed', editOn);
     });
 
-    // 13. Spread labels after every map render
+    // 13. Follow Me toggle
+    function _setFollowMeUI(on) {
+      const badge = document.getElementById('follow-me-badge');
+      badge.textContent = on ? 'ON' : 'OFF';
+      badge.classList.toggle('on', on);
+      document.getElementById('btn-follow-me').classList.toggle('active', on);
+    }
+    document.getElementById('btn-follow-me').addEventListener('click', () => {
+      const nowOn = document.getElementById('follow-me-badge').textContent !== 'ON';
+      _setFollowMeUI(nowOn);
+      mapManager.setFollowMe(nowOn, () => _setFollowMeUI(false));
+      dropdown.classList.add('hidden');
+      menuBtn.setAttribute('aria-expanded', 'false');
+    });
+
+    // 14. Force Refresh — clear SW caches then reload
+    document.getElementById('btn-refresh').addEventListener('click', async () => {
+      try {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(n => caches.delete(n)));
+        const reg = await navigator.serviceWorker?.getRegistration();
+        if (reg) await reg.unregister();
+      } catch (_) { /* ignore */ }
+      window.location.reload();
+    });
+
+    // 15. Spread labels after every map render
     mapManager.getMap().addListener('idle', _doSpread);
 
   } catch (err) {

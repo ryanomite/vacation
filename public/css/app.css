@@ -137,6 +137,7 @@ html, body {
 
 .dropdown-item--save { color: #93c5fd; }
 .dropdown-item--save.saving { opacity: 0.5; cursor: default; }
+.dropdown-item--refresh { color: #fbbf24; }
 
 /* ── Status Banner ────────────────────────────────────────────────── */
 #status-banner {
@@ -347,7 +348,7 @@ html, body {
 /* ── Icon picker ──────────────────────────────────────────────────── */
 .icon-grid {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 4px;
 }
 
@@ -358,17 +359,19 @@ html, body {
   width: 100%;
   aspect-ratio: 1;
   border-radius: 6px;
-  border: 1px solid transparent;
+  border: 1.5px solid transparent;
   background: rgba(255,255,255,0.05);
   cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  transition: background 0.1s, border-color 0.1s;
+  padding: 7px;
+  color: #64748b;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
 }
-.icon-btn:hover { background: rgba(255,255,255,0.12); }
+.icon-btn svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.icon-btn:hover { background: rgba(255,255,255,0.1); color: #94a3b8; }
 .icon-btn.selected {
-  background: rgba(59, 130, 246, 0.25);
+  background: rgba(59, 130, 246, 0.2);
   border-color: #3b82f6;
+  color: #93c5fd;
 }
 
 /* ── Color picker ─────────────────────────────────────────────────── */

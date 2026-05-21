@@ -520,17 +520,26 @@ function _cancelFlow() {
 
 function _buildIconGrid() {
   const grid = document.getElementById('icon-grid');
-  ICONS.forEach(icon => {
+  ICONS.forEach(iconDef => {
     const btn = document.createElement('button');
     btn.className = 'icon-btn';
-    btn.textContent = icon;
-    btn.dataset.icon = icon;
-    btn.title = icon;
+    btn.dataset.icon = iconDef.id;
+    btn.title = iconDef.label;
+
+    if (!iconDef.path && !iconDef.text) {
+      // "None" — circle with diagonal slash
+      btn.innerHTML = `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="16" cy="16" r="10"/><line x1="9" y1="9" x2="23" y2="23"/></svg>`;
+    } else if (iconDef.text) {
+      btn.innerHTML = `<svg viewBox="0 0 24 24"><text x="12" y="17" text-anchor="middle" font-size="15" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="700" fill="currentColor">${iconDef.text}</text></svg>`;
+    } else {
+      btn.innerHTML = `<svg viewBox="0 0 ${iconDef.width} 512"><path fill="currentColor" d="${iconDef.path}"/></svg>`;
+    }
+
     btn.addEventListener('click', () => {
       if (!_currentLocationId) return;
-      state.updateLocation(_currentLocationId, { icon });
+      state.updateLocation(_currentLocationId, { icon: iconDef.id });
       grid.querySelectorAll('.icon-btn').forEach(b => {
-        b.classList.toggle('selected', b.dataset.icon === icon);
+        b.classList.toggle('selected', b.dataset.icon === iconDef.id);
       });
     });
     grid.appendChild(btn);

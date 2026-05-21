@@ -2,7 +2,7 @@ import * as state      from './state.js';
 import * as events     from './events.js';
 import * as mapManager from './mapManager.js';
 import { getMapLabelClass } from './mapLabel.js';
-import { generateId, DEFAULT_ICON, DEFAULT_COLOR } from './utils.js';
+import { generateId, DEFAULT_ICON, DEFAULT_COLOR, getIconDef } from './utils.js';
 
 // locationId → google.maps.Marker
 const _markers = new Map();
@@ -174,8 +174,7 @@ function _addMarker(loc) {
     position:  { lat: loc.lat, lng: loc.lng },
     map,
     title:     loc.title,
-    label:     mapManager.makeMarkerLabel(loc.icon),
-    icon:      mapManager.makeMarkerIcon(loc.color),
+    icon:      mapManager.makeMarkerIcon(loc.color, getIconDef(loc.icon)),
     zIndex:    200,
     draggable: _editMode,
     optimized: false,
@@ -215,8 +214,7 @@ function _syncMarker(id) {
   const marker = _markers.get(id);
   if (!loc || !marker) return;
   marker.setTitle(loc.title);
-  marker.setLabel(mapManager.makeMarkerLabel(loc.icon));
-  marker.setIcon(mapManager.makeMarkerIcon(loc.color));
+  marker.setIcon(mapManager.makeMarkerIcon(loc.color, getIconDef(loc.icon)));
   const titleLabel = _titleLabels.get(id);
   if (titleLabel) titleLabel.update([loc.title], 'rgba(15,23,42,0.82)');
 }

@@ -2,6 +2,8 @@
 // All google.maps.* calls live here so other modules stay Maps-agnostic.
 
 let _map = null;
+let _followMe = false;
+let _onFollowMeDisabled = null;
 let _geocoder = null;
 let _directionsService = null;
 let _autocomplete = null;
@@ -22,6 +24,13 @@ export function init() {
 
   _geocoder = new google.maps.Geocoder();
   _directionsService = new google.maps.DirectionsService();
+
+  _map.addListener('dragstart', () => {
+    if (_followMe) {
+      _followMe = false;
+      if (_onFollowMeDisabled) _onFollowMeDisabled();
+    }
+  });
 
   const searchEl = document.getElementById('search-input');
   _autocomplete = new google.maps.places.Autocomplete(searchEl, {
@@ -100,22 +109,34 @@ export function getDirections(from, to) {
   });
 }
 
-// ── Marker helpers ─────────────────────────────────────────────────
+// ── Follow Me ──────────────────────────────────────────────────────
 
-export function makeMarkerIcon(color) {
-  return {
-    path: google.maps.SymbolPath.CIRCLE,
-    scale: 20,
-    fillColor: color,
-    fillOpacity: 1,
-    strokeColor: 'rgba(255,255,255,0.9)',
-    strokeWeight: 2.5,
-    labelOrigin: new google.maps.Point(0, 0),
-  };
+export function setFollowMe(enabled, onDisabled) {
+  _followMe = enabled;
+  _onFollowMeDisabled = onDisabled || null;
 }
 
-export function makeMarkerLabel(icon) {
-  return { text: icon, fontSize: '18px' };
+// ── Marker helpers ─────────────────────────────────────────────────
+
+/**
+ * Returns a Google Maps Icon using an inline SVG data URL.
+ * iconDef: { id, width, path } for FA path icons
+ *          { id, text }        for number icons
+ *          null / undefined    for no icon (plain circle)
+ */
+export function makeMarkerIcon(color, iconDef) {
+  let inner = '';
+  if (iconDef?.path) {
+    inner = `<svg x="9" y="9" width="30" height="30" viewBox="0 0 ${iconDef.width} 512"><path fill="white" d="${iconDef.path}"/></svg>`;
+  } else if (iconDef?.text) {
+    inner = `<text x="24" y="24" text-anchor="middle" dominant-baseline="central" fill="white" font-size="19" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="700">${iconDef.text}</text>`;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><circle cx="24" cy="24" r="21" fill="${color}"/>${inner}<circle cx="24" cy="24" r="21" fill="none" stroke="white" stroke-opacity="0.85" stroke-width="2.5"/></svg>`;
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+    scaledSize: new google.maps.Size(48, 48),
+    anchor:     new google.maps.Point(24, 24),
+  };
 }
 
 // ── Places details ─────────────────────────────────────────────────
@@ -178,6 +199,7 @@ export function initGeolocation() {
       };
 
       overlay.draw();
+      if (_followMe) _map.panTo(latLng);
     },
     err => console.warn('Geolocation:', err.message),
     { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 }

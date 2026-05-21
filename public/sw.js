@@ -1,4 +1,4 @@
-const CACHE = 'vacation-v0.3.0';
+const CACHE = 'vacation-v0.7.0';
 
 const SHELL = [
   '/',
