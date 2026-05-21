@@ -8,6 +8,7 @@ import * as journeyManager  from './journeyManager.js';
 import * as panels          from './panels.js';
 import { _showToast }       from './panels.js';
 import { spreadLabels }     from './mapLabel.js';
+import * as events          from './events.js';
 
 // ── Bootstrap ──────────────────────────────────────────────────────
 
@@ -35,14 +36,12 @@ async function boot() {
 
     // 6. Persist any time state changes (auto-save to localStorage)
     // Full server save is user-triggered via the Save button.
-    import('./events.js').then(events => {
-      events.on('state:changed', () => {
-        try {
-          localStorage.setItem('vacation-data', JSON.stringify(state.serialize()));
-        } catch (_) { /* storage full — not critical */ }
+    events.on('state:changed', () => {
+      try {
+        localStorage.setItem('vacation-data', JSON.stringify(state.serialize()));
+      } catch (_) { /* storage full — not critical */ }
 
-        _doSpread();
-      });
+      _doSpread();
     });
 
     // 7. Wire Save button
@@ -60,12 +59,42 @@ async function boot() {
     // 10. Start GPS dot
     mapManager.initGeolocation();
 
-    // 11. Wire hamburger toggle
-    document.getElementById('menu-btn').addEventListener('click', () => {
-      document.body.classList.add('toolbar-open');
+    // 11. Wire dropdown menu
+    const menuBtn  = document.getElementById('menu-btn');
+    const dropdown = document.getElementById('dropdown-menu');
+    menuBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const nowHidden = dropdown.classList.toggle('hidden');
+      menuBtn.setAttribute('aria-expanded', String(!nowHidden));
+    });
+    document.addEventListener('click', () => {
+      if (!dropdown.classList.contains('hidden')) {
+        dropdown.classList.add('hidden');
+        menuBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+    dropdown.addEventListener('click', e => e.stopPropagation());
+    ['btn-add-location', 'btn-add-journey', 'btn-agenda', 'btn-save'].forEach(id => {
+      document.getElementById(id).addEventListener('click', () => {
+        dropdown.classList.add('hidden');
+        menuBtn.setAttribute('aria-expanded', 'false');
+      });
     });
 
-    // 12. Spread labels after every map render
+    // 12. Edit mode toggle
+    document.getElementById('btn-edit-mode').addEventListener('click', () => {
+      const editOn = document.getElementById('edit-mode-badge').textContent !== 'ON';
+      const badge  = document.getElementById('edit-mode-badge');
+      badge.textContent = editOn ? 'ON' : 'OFF';
+      badge.classList.toggle('on', editOn);
+      document.getElementById('btn-edit-mode').classList.toggle('active', editOn);
+      ['btn-add-location', 'btn-add-journey'].forEach(id => {
+        document.getElementById(id).disabled = !editOn;
+      });
+      events.emit('editmode:changed', editOn);
+    });
+
+    // 13. Spread labels after every map render
     mapManager.getMap().addListener('idle', _doSpread);
 
   } catch (err) {

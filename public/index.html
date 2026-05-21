@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Vacation Planner</title>
 
   <!-- PWA -->
@@ -23,46 +23,47 @@
   <!-- Full-screen map -->
   <div id="map"></div>
 
-  <!-- ── Hamburger FAB (visible when toolbar is closed) ──────────────── -->
-  <button id="menu-btn" title="Open toolbar" aria-label="Open toolbar" aria-expanded="false">
+  <!-- ── Hamburger FAB ───────────────────────────────────────────────────── -->
+  <button id="menu-btn" title="Open menu" aria-label="Open menu" aria-expanded="false">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
       <line x1="4" y1="7"  x2="20" y2="7"/>
       <line x1="4" y1="12" x2="20" y2="12"/>
       <line x1="4" y1="17" x2="20" y2="17"/>
     </svg>
   </button>
-  <div id="toolbar">
+
+  <!-- ── Dropdown menu ───────────────────────────────────────────────── -->
+  <div id="dropdown-menu" class="hidden">
     <div id="search-wrapper">
       <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
       <input id="search-input" type="text" placeholder="Search for a place…" autocomplete="off">
     </div>
-
-    <div class="toolbar-divider"></div>
-
-    <button id="btn-add-location" class="toolbar-btn" title="Add location (click map)">
-      <span class="btn-icon">📍</span>
-      <span class="btn-label">Add Location</span>
+    <div class="dropdown-divider"></div>
+    <button id="btn-edit-mode" class="dropdown-item">
+      <span class="dropdown-item-icon">✏️</span>
+      <span class="dropdown-item-label">Edit Mode</span>
+      <span id="edit-mode-badge" class="dropdown-badge">OFF</span>
     </button>
-
-    <button id="btn-add-journey" class="toolbar-btn" title="Add journey between two locations">
-      <span class="btn-icon">🛣️</span>
-      <span class="btn-label">Add Journey</span>
+    <div class="dropdown-divider"></div>
+    <button id="btn-add-location" class="dropdown-item" disabled>
+      <span class="dropdown-item-icon">📍</span>
+      <span class="dropdown-item-label">Add Location</span>
     </button>
-
-    <div class="toolbar-divider"></div>
-
-    <button id="btn-agenda" class="toolbar-btn" title="Toggle agenda view">
-      <span class="btn-icon">📅</span>
-      <span class="btn-label">Agenda</span>
+    <button id="btn-add-journey" class="dropdown-item" disabled>
+      <span class="dropdown-item-icon">🛣️</span>
+      <span class="dropdown-item-label">Add Journey</span>
     </button>
-
-    <div class="toolbar-spacer"></div>
-
-    <button id="btn-save" class="toolbar-btn toolbar-btn--save" title="Save to server">
-      <span class="btn-icon">💾</span>
-      <span class="btn-label">Save</span>
+    <div class="dropdown-divider"></div>
+    <button id="btn-agenda" class="dropdown-item">
+      <span class="dropdown-item-icon">📅</span>
+      <span class="dropdown-item-label">Agenda</span>
+    </button>
+    <div class="dropdown-divider"></div>
+    <button id="btn-save" class="dropdown-item dropdown-item--save">
+      <span class="dropdown-item-icon">💾</span>
+      <span class="dropdown-item-label">Save</span>
     </button>
   </div>
 
@@ -72,8 +73,11 @@
     <button id="btn-status-cancel" title="Cancel">✕</button>
   </div>
 
-  <!-- ── Right Panel (location editor + journey editors) ──────────── -->
-  <div id="right-panel" class="side-panel hidden">
+  <!-- ── Modal backdrop ──────────────────────────────────────────────── -->
+  <div id="modal-backdrop"></div>
+
+  <!-- ── Right Panel (editors — bottom-sheet modal) ──────────────────── -->
+  <div id="right-panel" class="hidden">
 
     <!-- Location Editor -->
     <div id="location-editor" class="panel-view hidden">

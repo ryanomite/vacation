@@ -9,8 +9,7 @@ const _markers = new Map();
 // locationId → MapLabel (title overlay above marker)
 const _titleLabels = new Map();
 
-const _isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
+let _editMode   = false;
 let _addMode    = false;
 let _clickHandle = null;
 let _editingId  = null; // which location is currently open in the editor
@@ -36,8 +35,16 @@ export function init() {
     moveAC.set('place', null);
   });
 
-  // Track which location is open in the editor
-  events.on('ui:open-location', id => { _editingId = id; });
+  // Track which location is open in the editor (fix: also catch direct marker clicks)
+  events.on('ui:open-location',   id => { _editingId = id; });
+  events.on('location:map-click', id => { _editingId = id; });
+
+  // Edit mode toggles marker draggability
+  events.on('editmode:changed', enabled => {
+    _editMode = enabled;
+    _markers.forEach(m => m.setDraggable(enabled));
+    if (!enabled && _addMode) _exitAddMode();
+  });
 
   events.on('location:updated', loc => _syncMarker(loc.id));
   events.on('location:deleted', id  => _removeMarker(id));
@@ -170,7 +177,7 @@ function _addMarker(loc) {
     label:     mapManager.makeMarkerLabel(loc.icon),
     icon:      mapManager.makeMarkerIcon(loc.color),
     zIndex:    200,
-    draggable: !_isTouchDevice,
+    draggable: _editMode,
     optimized: false,
   });
 
@@ -178,36 +185,16 @@ function _addMarker(loc) {
     events.emit('location:map-click', loc.id);
   });
 
-  if (_isTouchDevice) {
-    // Disable accidental touch-scroll drag; require deliberate long-press (900ms)
-    // to enter tap-to-place move mode.
-    marker.setDraggable(false);
-    let _holdTimer = null;
-    marker.addListener('mousedown', () => {
-      _holdTimer = setTimeout(() => {
-        _holdTimer = null;
-        if (navigator.vibrate) navigator.vibrate(55);
-        _startMoveMode(loc.id);
-      }, 900);
-    });
-    ['mouseup', 'click', 'dragstart'].forEach(ev =>
-      marker.addListener(ev, () => { clearTimeout(_holdTimer); _holdTimer = null; })
-    );
-  } else {
-    // Desktop: native drag + confirmation before committing
-    let preDragPos = null;
-    marker.addListener('dragstart', () => {
-      preDragPos = marker.getPosition();
-    });
-    marker.addListener('dragend', () => {
-      const pos = marker.getPosition();
-      if (!confirm(`Move "${loc.title}" to new position?`)) {
-        if (preDragPos) marker.setPosition(preDragPos);
-        return;
-      }
-      _moveLocation(loc.id, pos.lat(), pos.lng());
-    });
-  }
+  let _preDragPos = null;
+  marker.addListener('dragstart', () => { _preDragPos = marker.getPosition(); });
+  marker.addListener('dragend', () => {
+    const pos = marker.getPosition();
+    if (!confirm(`Move "${loc.title}" to new position?`)) {
+      if (_preDragPos) marker.setPosition(_preDragPos);
+      return;
+    }
+    _moveLocation(loc.id, pos.lat(), pos.lng());
+  });
 
   // Title overlay above the marker
   const MapLabel   = getMapLabelClass();
@@ -221,32 +208,6 @@ function _addMarker(loc) {
 
   _markers.set(loc.id, marker);
   _titleLabels.set(loc.id, titleLabel);
-}
-
-// ── Mobile move mode (long-press → tap to place) ───────────────────
-
-function _startMoveMode(id) {
-  const marker = _markers.get(id);
-  if (!marker) return;
-
-  events.emit('status:show', { message: 'Tap the map to move this pin — or tap the pin to cancel', type: 'info' });
-
-  const mapHandle = mapManager.addMapClickListener(e => {
-    if (e.placeId) e.stop();
-    cleanup();
-    const lat = e.latLng.lat(), lng = e.latLng.lng();
-    const loc = state.getLocation(id);
-    if (!confirm(`Move "${loc?.title ?? 'location'}" here?`)) return;
-    _moveLocation(id, lat, lng);
-  });
-
-  const markerHandle = marker.addListener('click', () => cleanup());
-
-  function cleanup() {
-    mapManager.removeListener(mapHandle);
-    google.maps.event.removeListener(markerHandle);
-    events.emit('status:hide');
-  }
 }
 
 function _syncMarker(id) {

@@ -19,29 +19,7 @@ html, body {
 /* Keep Google Places autocomplete dropdown above everything */
 .pac-container { z-index: 9999 !important; }
 
-/* ── Toolbar ──────────────────────────────────────────────────────── */
-#toolbar {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 52px;
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 12px;
-  background: rgba(15, 23, 42, 0.92);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.35);
-  transform: translateY(-100%);
-  transition: transform 0.2s ease;
-  pointer-events: none;
-}
-body.toolbar-open #toolbar {
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-/* ── Hamburger FAB ──────────────────────────────────────────── */
+/* ── Hamburger FAB ──────────────────────────────────────────────── */
 #menu-btn {
   position: absolute;
   top: 10px;
@@ -59,33 +37,47 @@ body.toolbar-open #toolbar {
   justify-content: center;
   box-shadow: 0 2px 10px rgba(0,0,0,0.4);
   backdrop-filter: blur(8px);
-  transition: background 0.15s, transform 0.15s;
+  transition: background 0.15s;
   padding: 0;
 }
 #menu-btn:hover { background: rgba(30, 41, 59, 0.96); }
 #menu-btn svg { width: 18px; height: 18px; }
-body.toolbar-open #menu-btn { display: none; }
 
+/* ── Dropdown menu ──────────────────────────────────────────────── */
+#dropdown-menu {
+  position: absolute;
+  top: 60px;
+  left: 10px;
+  z-index: 250;
+  background: rgba(15,23,42,0.97);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  min-width: 260px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  overflow: hidden;
+  transition: opacity 0.15s, transform 0.15s;
+  transform-origin: top left;
+}
+#dropdown-menu.hidden {
+  opacity: 0;
+  transform: scale(0.94);
+  pointer-events: none;
+}
+
+/* ── Search row ──────────────────────────────────────────────────── */
 #search-wrapper {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 8px;
-  padding: 6px 12px;
-  flex: 1;
-  max-width: 340px;
-  transition: border-color 0.15s;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
-#search-wrapper:focus-within {
-  border-color: #3b82f6;
-  background: rgba(255,255,255,0.15);
-}
+#search-wrapper:focus-within { background: rgba(255,255,255,0.04); }
 
 .search-icon {
   width: 16px; height: 16px;
-  color: #94a3b8;
+  color: #64748b;
   flex-shrink: 0;
 }
 
@@ -96,58 +88,55 @@ body.toolbar-open #menu-btn { display: none; }
   color: #f1f5f9;
   font-size: 14px;
   width: 100%;
+  min-width: 0;
 }
-#search-input::placeholder { color: #64748b; }
+#search-input::placeholder { color: #475569; }
 
-.toolbar-divider {
-  width: 1px;
-  height: 28px;
-  background: rgba(255,255,255,0.12);
-  margin: 0 4px;
-  flex-shrink: 0;
+/* ── Dropdown items ──────────────────────────────────────────────── */
+.dropdown-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.07);
 }
 
-.toolbar-spacer { flex: 1; }
-
-.toolbar-btn {
+.dropdown-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
   background: transparent;
-  color: #cbd5e1;
+  border: none;
+  color: #e2e8f0;
+  font-size: 14px;
   cursor: pointer;
-  white-space: nowrap;
-  font-size: 13px;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  text-align: left;
+  transition: background 0.12s;
 }
-.toolbar-btn:hover {
-  background: rgba(255,255,255,0.1);
-  color: #f1f5f9;
+.dropdown-item:hover:not(:disabled) { background: rgba(255,255,255,0.07); }
+.dropdown-item.active { color: #93c5fd; }
+.dropdown-item:disabled { color: #334155; cursor: default; }
+
+.dropdown-item-icon { font-size: 16px; line-height: 1; flex-shrink: 0; }
+.dropdown-item-label { flex: 1; }
+
+.dropdown-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(239,68,68,0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239,68,68,0.3);
+  letter-spacing: 0.05em;
 }
-.toolbar-btn.active {
-  background: rgba(59, 130, 246, 0.25);
-  border-color: rgba(59, 130, 246, 0.6);
-  color: #93c5fd;
-}
-.toolbar-btn--save {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.4);
-  color: #93c5fd;
-}
-.toolbar-btn--save:hover {
-  background: rgba(59, 130, 246, 0.35);
-  border-color: rgba(59, 130, 246, 0.7);
-}
-.toolbar-btn--save.saving {
-  opacity: 0.6;
-  cursor: default;
+.dropdown-badge.on {
+  background: rgba(34,197,94,0.2);
+  color: #86efac;
+  border-color: rgba(34,197,94,0.35);
 }
 
-.btn-icon { font-size: 16px; line-height: 1; }
-.btn-label { font-size: 13px; }
+.dropdown-item--save { color: #93c5fd; }
+.dropdown-item--save.saving { opacity: 0.5; cursor: default; }
 
 /* ── Status Banner ────────────────────────────────────────────────── */
 #status-banner {
@@ -172,7 +161,6 @@ body.toolbar-open #menu-btn { display: none; }
 }
 #status-banner.hidden { display: none; }
 #status-banner.error { background: #b91c1c; }
-body.toolbar-open #status-banner { top: 62px; }
 
 #btn-status-cancel {
   background: transparent;
@@ -185,7 +173,7 @@ body.toolbar-open #status-banner { top: 62px; }
 }
 #btn-status-cancel:hover { color: #fff; }
 
-/* ── Side Panels ──────────────────────────────────────────────────── */
+/* ── Side Panels (agenda only) ─────────────────────────────────────── */
 .side-panel {
   position: absolute;
   top: 0;
@@ -196,16 +184,8 @@ body.toolbar-open #status-banner { top: 62px; }
   display: flex;
   flex-direction: column;
   box-shadow: 0 0 24px rgba(0,0,0,0.4);
-  transition: transform 0.25s ease, top 0.2s ease;
+  transition: transform 0.25s ease;
 }
-body.toolbar-open .side-panel { top: 52px; }
-
-/* Right panel slides in from right */
-#right-panel {
-  right: 0;
-  border-left: 1px solid rgba(255,255,255,0.08);
-}
-#right-panel.hidden { transform: translateX(100%); }
 
 /* Agenda panel slides in from left */
 #agenda-panel {
@@ -215,12 +195,43 @@ body.toolbar-open .side-panel { top: 52px; }
 }
 #agenda-panel.hidden { transform: translateX(-100%); }
 
-/* Override "display:none" default so transitions work */
 .side-panel.hidden {
   display: flex !important;
   pointer-events: none;
 }
 .side-panel:not(.hidden) { pointer-events: auto; }
+
+/* ── Modal backdrop ────────────────────────────────────────────────── */
+#modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 290;
+  background: rgba(0,0,0,0.55);
+}
+#modal-backdrop.active { display: block; }
+
+/* ── Right panel (bottom-sheet modal) ─────────────────────────────── */
+#right-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 85dvh;
+  z-index: 300;
+  background: #0f172a;
+  border-radius: 16px 16px 0 0;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
+  transition: transform 0.3s ease;
+}
+#right-panel.hidden {
+  transform: translateY(100%);
+  pointer-events: none;
+}
 
 .panel-header {
   display: flex;

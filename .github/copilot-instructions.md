@@ -21,6 +21,7 @@ Every commit message **must** be prefixed with the next version number:
 - Determine the next version before committing — check `package.json` for the current version.
 - Update `package.json` `"version"` field to match before committing.
 - After committing, the version in `package.json` is the current version.
+- After committing, let's also push to the remote repository, to trigger CapRover deployment.
 
 ## Project conventions
 

@@ -69,6 +69,13 @@ function _wireEvents() {
   events.on('status:hide', () => _hideBanner());
 
   // Keep agenda fresh
+  events.on('editmode:changed', enabled => {
+    if (!enabled) {
+      journeyManager.clearPreviews();
+      _resetFlow();
+    }
+  });
+
   events.on('state:changed', () => {
     if (!document.getElementById('agenda-panel').classList.contains('hidden')) {
       _updateAgenda();
@@ -95,6 +102,7 @@ function _wirePanelCloseButtons() {
   document.querySelectorAll('.btn-close-panel').forEach(btn => {
     btn.addEventListener('click', closeRightPanel);
   });
+  document.getElementById('modal-backdrop').addEventListener('click', closeRightPanel);
   document.getElementById('btn-close-agenda')?.addEventListener('click', _closeAgenda);
   document.getElementById('btn-status-cancel').addEventListener('click', _cancelFlow);
 }
@@ -475,10 +483,12 @@ function _showPanelView(viewId) {
 
 function _openRightPanel() {
   document.getElementById('right-panel').classList.remove('hidden');
+  document.getElementById('modal-backdrop').classList.add('active');
 }
 
 export function closeRightPanel() {
   document.getElementById('right-panel').classList.add('hidden');
+  document.getElementById('modal-backdrop').classList.remove('active');
   // If we were in a journey flow, cancel it
   if (_flow.step !== 'idle') {
     journeyManager.clearPreviews();
