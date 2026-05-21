@@ -1,4 +1,4 @@
-const CACHE = 'vacation-v0.7.0';
+const CACHE = 'vacation-v1.1.0';
 
 const SHELL = [
   '/',
@@ -13,6 +13,7 @@ const SHELL = [
   '/js/locationManager.js',
   '/js/journeyManager.js',
   '/js/panels.js',
+  '/js/shareManager.js',
   '/manifest.json',
   '/icons/icon.svg',
 ];
@@ -46,4 +47,35 @@ self.addEventListener('fetch', e => {
     caches.match(e.request)
       .then(cached => cached || fetch(e.request))
   );
+});
+
+// ── Share Mode: store latest coordinates sent from the page ────────
+
+const SHARE_CACHE = 'share-data-v1';
+
+self.addEventListener('message', async e => {
+  if (e.data?.type !== 'share-location-update') return;
+  try {
+    const cache = await caches.open(SHARE_CACHE);
+    await cache.put('/_sw_share_data', new Response(JSON.stringify(e.data)));
+  } catch (_) {}
+});
+
+// Periodic background sync — fires even when app is not open
+self.addEventListener('periodicsync', async e => {
+  if (e.tag !== 'share-location') return;
+  e.waitUntil((async () => {
+    try {
+      const cache  = await caches.open(SHARE_CACHE);
+      const stored = await cache.match('/_sw_share_data');
+      if (!stored) return;
+      const { name, lat, lng } = await stored.json();
+      if (!name || typeof lat !== 'number' || typeof lng !== 'number') return;
+      await fetch('/api/location', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ name, lat, lng }),
+      });
+    } catch (_) {}
+  })());
 });

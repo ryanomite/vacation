@@ -91,6 +91,15 @@ app.post('/api/data', (req, res) => {
   }
 });
 
+// Share mode: receive a user's location and rebroadcast to all SSE clients
+app.post('/api/location', (req, res) => {
+  const { name, lat, lng } = req.body || {};
+  if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'name required' });
+  if (typeof lat !== 'number' || typeof lng !== 'number') return res.status(400).json({ error: 'lat/lng required' });
+  _broadcast({ type: 'user-location', name: name.trim().slice(0, 50), lat, lng });
+  res.json({ ok: true });
+});
+
 // List backups (newest first)
 app.get('/api/backups', (req, res) => {
   try {

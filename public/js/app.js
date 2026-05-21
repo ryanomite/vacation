@@ -9,6 +9,7 @@ import * as panels          from './panels.js';
 import { _showToast }       from './panels.js';
 import { spreadLabels }     from './mapLabel.js';
 import * as events          from './events.js';
+import * as shareManager    from './shareManager.js';
 
 // ── Bootstrap ──────────────────────────────────────────────────────
 
@@ -63,6 +64,9 @@ async function boot() {
       mapManager.setFollowMe(nowOn, () => _setFollowMeUI(false));
     });
 
+    // 10b. Init share manager (restores share mode if it was active)
+    shareManager.init(mapManager.getMap());
+
     // 11. Wire dropdown menu
     const menuBtn  = document.getElementById('menu-btn');
     const dropdown = document.getElementById('dropdown-menu');
@@ -109,6 +113,22 @@ async function boot() {
       const nowOn = document.getElementById('follow-me-badge').textContent !== 'ON';
       _setFollowMeUI(nowOn);
       mapManager.setFollowMe(nowOn, () => _setFollowMeUI(false));
+      dropdown.classList.add('hidden');
+      menuBtn.setAttribute('aria-expanded', 'false');
+    });
+
+    // 13b. Share Mode toggle
+    function _setShareModeUI(on) {
+      const badge = document.getElementById('share-mode-badge');
+      badge.textContent = on ? 'ON' : 'OFF';
+      badge.classList.toggle('on', on);
+      document.getElementById('btn-share-mode').classList.toggle('active', on);
+    }
+    _setShareModeUI(shareManager.isShareMode());
+    document.getElementById('btn-share-mode').addEventListener('click', () => {
+      const nowOn = shareManager.toggle();
+      if (nowOn === false && shareManager.isShareMode()) return; // user cancelled name prompt
+      _setShareModeUI(shareManager.isShareMode());
       dropdown.classList.add('hidden');
       menuBtn.setAttribute('aria-expanded', 'false');
     });
@@ -234,6 +254,7 @@ function _connectSSE() {
     try {
       const msg = JSON.parse(e.data);
       if (msg.type === 'data-changed') _remoteReload();
+      if (msg.type === 'user-location') shareManager.updateRemoteUser(msg.name, msg.lat, msg.lng);
     } catch (_) {}
   };
   // EventSource auto-reconnects on its own; no manual retry needed.
