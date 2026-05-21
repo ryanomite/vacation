@@ -8,14 +8,41 @@ Built by [Ryan Roper](mailto:ryan@ryanroper.com) for personal vacation planning.
 
 ## Features
 
+### Map & locations
 - **Full-screen Google Map** with a clean dark toolbar overlay
 - **Add locations** by clicking the map or searching for an address/place
 - **Edit locations** — set a custom title, emoji icon, marker color, and date range (single day or multi-day stay)
+- **Info modals** — tap any location or route in view-only mode to see its details; an **Edit** button switches directly into edit mode
+
+### Journeys
 - **Journeys** between any two locations using Google's Directions API — choose from multiple suggested routes, each shown as a colored polyline with a travel-time label
-- **Edit journeys** — assign a travel date and path color
+- **Edit journeys** — assign a travel date, custom title, and path color
+- **Add Stop** — search for a place inside the journey editor to insert it as a midpoint; the journey is split into two legs automatically with recalculated routes
+- **Smart merge on delete** — when deleting a location that sits between two journeys on the same date, those journeys automatically merge into one (route recalculated)
+
+### Itinerary
 - **Agenda view** — a collapsible day-by-day summary of all locations and journeys that have dates assigned
+
+### Saving & sync
 - **Auto-save to `localStorage`** on every change, so the page survives a refresh
-- **Server save/load** — a Save button pushes the full plan to the backend; anyone with the URL (e.g. a shared family link) sees the latest saved plan on page load
+- **Server save/load** — a Save button pushes the full plan to the backend; anyone with the URL sees the latest saved plan on page load
+- **Live sync via SSE** — all connected clients receive a silent notification when the plan is saved; their maps refresh automatically without a page reload (non-intrusive toast if they are actively editing)
+
+### Navigation
+- **Follow Me mode** — GPS dot appears on the map showing your real-time position; enable Follow Me to keep the map centred on you as you move
+- **GPS dot tap** — tapping the GPS dot on the map directly toggles Follow Me mode
+
+### Share Mode
+- **Share Mode** — opt-in feature for travellers who want to share their live location with people who are _not_ on the trip (e.g. family following along from home)
+  - Toggle from the menu; persists across sessions via `localStorage`
+  - Prompts for your first name on first activation (also persisted)
+  - Posts your GPS coordinates to the server every minute while active
+  - Received locations are rebroadcast instantly to all connected clients via SSE
+  - Remote users appear on the map as named orange markers
+  - Background sync via **Service Worker Periodic Sync** — continues posting location even when the tab is closed (where supported by the browser)
+
+### PWA
+- **Installable as a PWA** — add to home screen on iOS/Android; full offline shell cached by the service worker
 
 ---
 
@@ -27,6 +54,7 @@ Built by [Ryan Roper](mailto:ryan@ryanroper.com) for personal vacation planning.
 | Map | Google Maps JavaScript API, Places API, Directions API |
 | Backend | Node.js + Express |
 | Storage | Single JSON file (`data/data.json`) |
+| Push | Server-Sent Events (SSE) — live sync + location sharing, no extra dependencies |
 | Deployment | Docker + [CapRover](https://caprover.com/) |
 
 ---
@@ -86,12 +114,16 @@ CapRover automatically rebuilds and redeploys on every push to `main`.
 
 | Action | How |
 |---|---|
-| Add a location | Click **📍 Add Location** in the toolbar, then click the map — or type in the search box |
-| Edit a location | Click any marker on the map |
+| Add a location | Click **📍 Add Location** in the menu, then click the map — or type in the search box |
+| Edit a location | Enable **Edit Mode**, then click any marker |
+| View location details | With Edit Mode off, click any marker |
 | Add a journey | Click **🛣️ Add Journey**, then click two location markers, and choose a route |
-| Edit/delete a journey | Click the colored route line on the map |
+| Add a stop to a journey | Open the journey editor, type in the **Add Stop** field |
+| Edit/delete a journey | Enable **Edit Mode**, then click the colored route line |
 | View itinerary | Click **📅 Agenda** to open the day-by-day sidebar |
-| Save to server | Click **💾 Save** — pushes the latest plan so others with the link see it too |
+| Save to server | Click **💾 Save** — pushes the latest plan so others with the link see it |
+| Follow your position | Click **📍 Follow Me** in the menu (or tap the GPS dot on the map) |
+| Share your location | Click **📡 Share Mode** in the menu — enter your name and your dot appears on all viewers' maps |
 
 ---
 
@@ -102,6 +134,8 @@ vacation/
 ├── server.js                 Express backend
 ├── public/
 │   ├── index.html
+│   ├── sw.js                 Service worker (offline shell + background location sync)
+│   ├── manifest.json
 │   ├── css/app.css
 │   └── js/
 │       ├── app.js            Boot / init
@@ -113,7 +147,8 @@ vacation/
 │       ├── mapLabel.js       Custom route-label overlay
 │       ├── locationManager.js  Location markers + search
 │       ├── journeyManager.js   Route polylines + directions
-│       └── panels.js         All UI panels + journey flow
+│       ├── panels.js         All UI panels + journey flow
+│       └── shareManager.js   Share Mode — live location broadcast + remote user markers
 ├── data/                     Runtime data (persistent volume)
 ├── Dockerfile
 ├── captain-definition
