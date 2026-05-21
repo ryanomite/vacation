@@ -223,6 +223,12 @@ window.addEventListener('beforeinstallprompt', e => {
 });
 
 function _showInstallBanner() {
+  const MAX_SHOWS = 2;
+  const key = 'vacation-pwa-prompt-count';
+  const count = parseInt(localStorage.getItem(key) || '0', 10);
+  if (count >= MAX_SHOWS) return;
+  localStorage.setItem(key, String(count + 1));
+
   const banner = document.getElementById('install-banner');
   if (!banner) return;
   banner.classList.remove('hidden');
