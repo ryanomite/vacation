@@ -48,7 +48,8 @@ export function getMapLabelClass() {
 
     _applyVisibility() {
       if (!this._div) return;
-      this._div.style.display = this._visible ? '' : 'none';
+      this._div.style.visibility = this._visible ? 'visible' : 'hidden';
+      this._div.style.pointerEvents = this._visible ? '' : 'none';
     }
 
     onAdd() {
@@ -132,13 +133,14 @@ export function spreadLabels(labels) {
   if (!labels.length) return;
 
   labels.forEach(label => {
-    label.setVisible(true);
+    label.setVisible(false);
     label.setOffset(0, 0);
   });
 
   requestAnimationFrame(() => {
     const items = _buildItems(labels);
     _spreadItems(items, DEFAULT_SPREAD_PADDING);
+    labels.forEach(label => label.setVisible(true));
     _applyOffsets(items);
   });
 }
@@ -147,34 +149,52 @@ export function selectVisibleLabels(labels, options = {}) {
   if (!labels.length) return;
 
   labels.forEach(label => {
-    label.setVisible(true);
+    label.setVisible(false);
     label.setOffset(0, 0);
   });
 
   requestAnimationFrame(() => {
     const margin = options.margin ?? DEFAULT_MARGIN;
     const spreadPadding = options.spreadPadding ?? DEFAULT_SPREAD_PADDING;
-    const items = _buildItems(labels);
-    const ordered = items
-      .map(item => ({
-        ...item,
-        priority: Number.isFinite(item.label.getMeta()?.priority) ? item.label.getMeta().priority : 0,
-      }))
-      .sort((a, b) => {
-        if (b.priority !== a.priority) return b.priority - a.priority;
-        return a.index - b.index;
-      });
+    const items = _buildItems(labels).map(item => ({
+      ...item,
+      priority: Number.isFinite(item.label.getMeta()?.priority) ? item.label.getMeta().priority : 0,
+    }));
 
-    let selected = ordered.slice();
+    if (!items.length) {
+      _applyVisibility(labels, new Set());
+      return;
+    }
+
+    let selected = items.slice();
+    let laidOut = selected.map(item => ({ ...item, dx: 0, dy: 0 }));
+
     while (selected.length > 1) {
-      const laidOut = selected.map(item => ({ ...item, dx: 0, dy: 0 }));
+      laidOut = selected.map(item => ({ ...item, dx: 0, dy: 0 }));
       _spreadItems(laidOut, spreadPadding);
-      if (!_hasCrowding(laidOut, margin)) {
+
+      const crowdedPairs = _getCrowdedPairs(laidOut, margin);
+      if (!crowdedPairs.length) {
         _applyVisibility(labels, new Set(laidOut.map(item => item.label)));
         _applyOffsets(laidOut);
         return;
       }
-      selected = selected.slice(0, -1);
+
+      const conflicting = new Set();
+      crowdedPairs.forEach(([a, b]) => {
+        conflicting.add(a.label);
+        conflicting.add(b.label);
+      });
+
+      const toRemove = selected
+        .filter(item => conflicting.has(item.label))
+        .sort((a, b) => {
+          if (a.priority !== b.priority) return a.priority - b.priority;
+          return b.index - a.index;
+        })[0];
+
+      if (!toRemove) break;
+      selected = selected.filter(item => item.label !== toRemove.label);
     }
 
     const visible = new Set(selected.map(item => item.label));
@@ -254,7 +274,8 @@ function _spreadItems(items, padding) {
   }
 }
 
-function _hasCrowding(items, margin) {
+function _getCrowdedPairs(items, margin) {
+  const crowded = [];
   for (let i = 0; i < items.length; i++) {
     for (let j = i + 1; j < items.length; j++) {
       const a = items[i];
@@ -269,10 +290,10 @@ function _hasCrowding(items, margin) {
       const by2 = by1 + b.h;
 
       if (ax2 + margin <= bx1 || bx2 + margin <= ax1 || ay2 + margin <= by1 || by2 + margin <= ay1) continue;
-      return true;
+      crowded.push([a, b]);
     }
   }
-  return false;
+  return crowded;
 }
 
 function _applyOffsets(items) {
