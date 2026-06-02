@@ -215,6 +215,7 @@ function _addMarker(loc) {
     'rgba(15,23,42,0.82)',
     'map-location-label'
   );
+  titleLabel.setMeta({ type: 'location', locationId: loc.id });
   titleLabel.setMap(loc.title ? map : null);
 
   _markers.set(loc.id, marker);
@@ -230,6 +231,7 @@ function _syncMarker(id) {
   const titleLabel = _titleLabels.get(id);
   if (titleLabel) {
     titleLabel.update([loc.title], 'rgba(15,23,42,0.82)');
+    titleLabel.setMeta({ type: 'location', locationId: loc.id });
     titleLabel.setMap(loc.title ? mapManager.getMap() : null);
   }
 }

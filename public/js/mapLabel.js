@@ -9,6 +9,10 @@
 
 let _MapLabelClass = null;
 
+const DEFAULT_MARGIN = 18;
+const DEFAULT_SPREAD_PADDING = 6;
+const MAX_SPREAD_ITERATIONS = 12;
+
 function _esc(str) {
   return String(str)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -29,6 +33,8 @@ export function getMapLabelClass() {
       this._div      = null;
       this._rawPos   = null;
       this._offset   = { x: 0, y: 0 };
+      this._visible  = true;
+      this._meta     = null;
     }
 
     _renderContent() {
@@ -40,6 +46,11 @@ export function getMapLabelClass() {
       this._div.style.backgroundColor = this._bgColor;
     }
 
+    _applyVisibility() {
+      if (!this._div) return;
+      this._div.style.display = this._visible ? '' : 'none';
+    }
+
     onAdd() {
       this._div = document.createElement('div');
       this._div.className = this._cssClass;
@@ -48,6 +59,7 @@ export function getMapLabelClass() {
         this._div.addEventListener('click', e => { e.stopPropagation(); this._onClick(); });
       }
       this._renderContent();
+      this._applyVisibility();
       // floatPane sits above the polyline SVG layer, keeping labels readable
       this.getPanes().floatPane.appendChild(this._div);
     }
@@ -90,6 +102,23 @@ export function getMapLabelClass() {
       }
     }
 
+    setVisible(visible) {
+      this._visible = visible !== false;
+      this._applyVisibility();
+    }
+
+    isVisible() {
+      return this._visible;
+    }
+
+    setMeta(meta) {
+      this._meta = meta;
+    }
+
+    getMeta() {
+      return this._meta;
+    }
+
     getDiv() { return this._div; }
   };
 
@@ -102,52 +131,159 @@ export function getMapLabelClass() {
 export function spreadLabels(labels) {
   if (!labels.length) return;
 
-  // Reset to natural positions first
-  labels.forEach(l => l.setOffset(0, 0));
+  labels.forEach(label => {
+    label.setVisible(true);
+    label.setOffset(0, 0);
+  });
 
-  // Read positions after browser applies the style update, then spread
   requestAnimationFrame(() => {
-    const PAD = 6; // px padding between labels
+    const items = _buildItems(labels);
+    _spreadItems(items, DEFAULT_SPREAD_PADDING);
+    _applyOffsets(items);
+  });
+}
 
-    const items = labels
-      .map(l => {
-        const div = l.getDiv();
-        if (!div) return null;
-        const r = div.getBoundingClientRect();
-        if (!r.width || !r.height) return null;
-        return { label: l, x: r.left, y: r.top, w: r.width, h: r.height, dx: 0, dy: 0 };
-      })
-      .filter(Boolean);
+export function selectVisibleLabels(labels, options = {}) {
+  if (!labels.length) return;
 
-    for (let iter = 0; iter < 12; iter++) {
-      let anyOverlap = false;
-      for (let i = 0; i < items.length; i++) {
-        for (let j = i + 1; j < items.length; j++) {
-          const a = items[i], b = items[j];
-          const ax1 = a.x + a.dx, ax2 = ax1 + a.w;
-          const ay1 = a.y + a.dy, ay2 = ay1 + a.h;
-          const bx1 = b.x + b.dx, bx2 = bx1 + b.w;
-          const by1 = b.y + b.dy, by2 = by1 + b.h;
+  labels.forEach(label => {
+    label.setVisible(true);
+    label.setOffset(0, 0);
+  });
 
-          if (ax2 + PAD <= bx1 || bx2 + PAD <= ax1 || ay2 + PAD <= by1 || by2 + PAD <= ay1) continue;
+  requestAnimationFrame(() => {
+    const margin = options.margin ?? DEFAULT_MARGIN;
+    const spreadPadding = options.spreadPadding ?? DEFAULT_SPREAD_PADDING;
+    const items = _buildItems(labels);
+    const ordered = items
+      .map(item => ({
+        ...item,
+        priority: Number.isFinite(item.label.getMeta()?.priority) ? item.label.getMeta().priority : 0,
+      }))
+      .sort((a, b) => {
+        if (b.priority !== a.priority) return b.priority - a.priority;
+        return a.index - b.index;
+      });
 
-          anyOverlap = true;
-          const overlapX = Math.min(ax2 - bx1, bx2 - ax1) + PAD;
-          const overlapY = Math.min(ay2 - by1, by2 - ay1) + PAD;
-          const push = 0.5;
+    let selected = ordered.slice();
+    while (selected.length > 1) {
+      const laidOut = selected.map(item => ({ ...item, dx: 0, dy: 0 }));
+      _spreadItems(laidOut, spreadPadding);
+      if (!_hasCrowding(laidOut, margin)) {
+        _applyVisibility(labels, new Set(laidOut.map(item => item.label)));
+        _applyOffsets(laidOut);
+        return;
+      }
+      selected = selected.slice(0, -1);
+    }
 
-          if (overlapX < overlapY) {
-            const d = overlapX * push;
-            if (ax1 < bx1) { a.dx -= d; b.dx += d; } else { a.dx += d; b.dx -= d; }
+    const visible = new Set(selected.map(item => item.label));
+    _applyVisibility(labels, visible);
+    if (selected.length === 1) {
+      selected[0].label.setOffset(0, 0);
+    }
+  });
+}
+
+function _buildItems(labels) {
+  return labels
+    .map((label, index) => {
+      const div = label.getDiv();
+      if (!div) return null;
+      const rect = div.getBoundingClientRect();
+      if (!rect.width || !rect.height) return null;
+      return {
+        index,
+        label,
+        x: rect.left,
+        y: rect.top,
+        w: rect.width,
+        h: rect.height,
+        dx: 0,
+        dy: 0,
+      };
+    })
+    .filter(Boolean);
+}
+
+function _spreadItems(items, padding) {
+  for (let iter = 0; iter < MAX_SPREAD_ITERATIONS; iter++) {
+    let anyOverlap = false;
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const a = items[i];
+        const b = items[j];
+        const ax1 = a.x + a.dx;
+        const ax2 = ax1 + a.w;
+        const ay1 = a.y + a.dy;
+        const ay2 = ay1 + a.h;
+        const bx1 = b.x + b.dx;
+        const bx2 = bx1 + b.w;
+        const by1 = b.y + b.dy;
+        const by2 = by1 + b.h;
+
+        if (ax2 + padding <= bx1 || bx2 + padding <= ax1 || ay2 + padding <= by1 || by2 + padding <= ay1) continue;
+
+        anyOverlap = true;
+        const overlapX = Math.min(ax2 - bx1, bx2 - ax1) + padding;
+        const overlapY = Math.min(ay2 - by1, by2 - ay1) + padding;
+        const push = 0.5;
+
+        if (overlapX < overlapY) {
+          const delta = overlapX * push;
+          if (ax1 < bx1) {
+            a.dx -= delta;
+            b.dx += delta;
           } else {
-            const d = overlapY * push;
-            if (ay1 < by1) { a.dy -= d; b.dy += d; } else { a.dy += d; b.dy -= d; }
+            a.dx += delta;
+            b.dx -= delta;
+          }
+        } else {
+          const delta = overlapY * push;
+          if (ay1 < by1) {
+            a.dy -= delta;
+            b.dy += delta;
+          } else {
+            a.dy += delta;
+            b.dy -= delta;
           }
         }
       }
-      if (!anyOverlap) break;
     }
+    if (!anyOverlap) break;
+  }
+}
 
-    items.forEach(item => item.label.setOffset(item.dx, item.dy));
+function _hasCrowding(items, margin) {
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const a = items[i];
+      const b = items[j];
+      const ax1 = a.x + a.dx;
+      const ax2 = ax1 + a.w;
+      const ay1 = a.y + a.dy;
+      const ay2 = ay1 + a.h;
+      const bx1 = b.x + b.dx;
+      const bx2 = bx1 + b.w;
+      const by1 = b.y + b.dy;
+      const by2 = by1 + b.h;
+
+      if (ax2 + margin <= bx1 || bx2 + margin <= ax1 || ay2 + margin <= by1 || by2 + margin <= ay1) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
+function _applyOffsets(items) {
+  items.forEach(item => item.label.setOffset(item.dx, item.dy));
+}
+
+function _applyVisibility(labels, visible) {
+  labels.forEach(label => {
+    label.setVisible(visible.has(label));
+    if (!visible.has(label)) {
+      label.setOffset(0, 0);
+    }
   });
 }

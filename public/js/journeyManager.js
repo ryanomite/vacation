@@ -147,6 +147,7 @@ function _renderJourney(journey) {
     'map-journey-label',
     () => events.emit('ui:open-journey', journey.id)
   );
+  label.setMeta({ type: 'journey', journeyId: journey.id });
   label.setMap(map);
 
   _renderers.set(journey.id, { polyline, label });
@@ -157,6 +158,7 @@ function _syncRenderer(journey) {
   if (!r) return;
   r.polyline.setOptions({ strokeColor: journey.color });
   r.label.update([journey.title, journey.durationText].filter(Boolean), journey.color);
+  r.label.setMeta({ type: 'journey', journeyId: journey.id });
 }
 
 function _removeRenderer(id) {

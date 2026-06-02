@@ -7,7 +7,7 @@ import * as locationManager from './locationManager.js';
 import * as journeyManager  from './journeyManager.js';
 import * as panels          from './panels.js';
 import { _showToast }       from './panels.js';
-import { spreadLabels }     from './mapLabel.js';
+import { selectVisibleLabels } from './mapLabel.js';
 import * as events          from './events.js';
 import * as shareManager    from './shareManager.js';
 
@@ -239,10 +239,120 @@ function showError(err) {
 }
 
 function _doSpread() {
-  spreadLabels([
+  const locations = state.getLocations();
+  const journeys = state.getJourneys();
+  const averageJourneyMinutes = _getAverageJourneyMinutes(journeys);
+  const dayCounts = _buildDayVisitCounts(locations);
+
+  const labels = [
     ...locationManager.getTitleLabels(),
     ...journeyManager.getJourneyLabels(),
-  ]);
+  ];
+
+  labels.forEach(label => {
+    const meta = label.getMeta();
+    if (!meta) return;
+
+    if (meta.type === 'location') {
+      const location = state.getLocation(meta.locationId);
+      label.setMeta({ ...meta, priority: _getLocationLabelPriority(location, dayCounts) });
+      return;
+    }
+
+    if (meta.type === 'journey') {
+      const journey = state.getJourney(meta.journeyId);
+      label.setMeta({ ...meta, priority: _getJourneyLabelPriority(journey, averageJourneyMinutes) });
+    }
+  });
+
+  selectVisibleLabels(labels);
+}
+
+function _getAverageJourneyMinutes(journeys) {
+  const minutes = journeys
+    .map(journey => _parseDurationMinutes(journey?.durationText))
+    .filter(value => value > 0);
+
+  if (!minutes.length) return 0;
+  return minutes.reduce((sum, value) => sum + value, 0) / minutes.length;
+}
+
+function _getJourneyLabelPriority(journey, averageJourneyMinutes) {
+  if (!journey) return 0;
+
+  const durationMinutes = _parseDurationMinutes(journey.durationText);
+  let priority = 35;
+
+  if (averageJourneyMinutes > 0 && durationMinutes > averageJourneyMinutes) {
+    priority = 70;
+  } else if (averageJourneyMinutes > 0 && durationMinutes > 0 && durationMinutes < averageJourneyMinutes / 2) {
+    priority = 10;
+  }
+
+  if (!journey.title?.trim()) {
+    priority -= 15;
+  }
+
+  return priority;
+}
+
+function _getLocationLabelPriority(location, dayCounts) {
+  if (!location) return 0;
+
+  const visitDates = _getLocationVisitDates(location);
+  const spansMultipleDays = visitDates.length > 1;
+  const soloDay = visitDates.some(date => dayCounts.get(date) === 1);
+
+  if (spansMultipleDays) return 100;
+  if (soloDay) return 80;
+  if (visitDates.length > 0) return 55;
+  return 40;
+}
+
+function _buildDayVisitCounts(locations) {
+  const counts = new Map();
+  locations.forEach(location => {
+    _getLocationVisitDates(location).forEach(date => {
+      counts.set(date, (counts.get(date) || 0) + 1);
+    });
+  });
+  return counts;
+}
+
+function _getLocationVisitDates(location) {
+  if (!location?.startDate) return [];
+
+  const dates = [];
+  const endDate = location.endDate && location.endDate >= location.startDate
+    ? location.endDate
+    : location.startDate;
+  const current = new Date(`${location.startDate}T00:00:00`);
+  const last = new Date(`${endDate}T00:00:00`);
+
+  while (current <= last) {
+    dates.push(current.toISOString().slice(0, 10));
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function _parseDurationMinutes(durationText) {
+  if (!durationText) return 0;
+
+  const lower = durationText.toLowerCase();
+  let total = 0;
+
+  const dayMatch = lower.match(/(\d+)\s*day/);
+  if (dayMatch) total += Number(dayMatch[1]) * 24 * 60;
+
+  const hourMatch = lower.match(/(\d+)\s*hour/);
+  if (hourMatch) total += Number(hourMatch[1]) * 60;
+
+  const minuteMatch = lower.match(/(\d+)\s*min/);
+  if (minuteMatch) total += Number(minuteMatch[1]);
+
+  return total;
 }
 
 // ── Live updates via Server-Sent Events ───────────────────────────
